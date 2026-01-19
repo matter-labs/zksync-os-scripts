@@ -3,15 +3,26 @@
 from lib.ctx import ScriptCtx
 from lib.entry import run_script
 import lib.utils as utils
+from lib.constants import ZKSYNC_OS_URL
 
 
 def script(ctx: ScriptCtx) -> None:
+
+    # ------------------------------------------------------------------ #
+    # Tooling check
+    # ------------------------------------------------------------------ #
+    ctx.require_cmds(
+        {
+            "cargo": ">=1.89",
+        }
+    )
+
     # ------------------------------------------------------------------ #
     # Required environment
     # ------------------------------------------------------------------ #
     zkos_wrapper_path = ctx.path_from_env("ZKOS_WRAPPER_PATH", "zkos-wrapper")
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
-    zksync_os_url = utils.require_env("ZKSYNC_OS_URL")
+    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", ZKSYNC_OS_URL)
 
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file

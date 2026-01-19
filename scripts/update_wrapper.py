@@ -17,11 +17,11 @@ def script(ctx: ScriptCtx) -> None:
     )
 
     # ------------------------------------------------------------------ #
-    with ctx.section("Building wrapper", expected=10):
+    with ctx.section("Building wrapper", expected=100):
         ctx.sh("cargo run --release --bin wrapper_generator")
 
     # ------------------------------------------------------------------ #
-    with ctx.section("Generating fibonacci SNARK proof", expected=285):
+    with ctx.section("Generating fibonacci SNARK proof", expected=350):
         airbender_dir = ctx.path_from_env("ZKSYNC_AIRBENDER_PATH", "zksync-airbender")
         ctx.sh(
             f"""
@@ -38,7 +38,7 @@ def script(ctx: ScriptCtx) -> None:
         utils.cp(generated_json, risc_proof)
 
     # ------------------------------------------------------------------ #
-    with ctx.section("Updating test data", expected=1300):
+    with ctx.section("Updating test data", expected=1780):
         ctx.sh(
             "cargo test --release all_layers_full_test -- --nocapture",
             env={"RUST_MIN_STACK": "67108864"},

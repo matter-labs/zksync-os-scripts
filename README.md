@@ -84,7 +84,7 @@ Generates new verification keys.
 
 Usage:
 ```bash
-REPO_DIR=/path/to/zksync-os \
+REPO_DIR=/path/to/era-contracts \
 ZKOS_WRAPPER_PATH=/path/to/zkos-wrapper \
 ZKSYNC_OS_TAG=<new_zksync_os_tag> \
     uv run -m scripts.update_vk

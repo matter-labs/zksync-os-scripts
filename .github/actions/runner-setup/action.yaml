@@ -9,6 +9,12 @@ inputs:
     required: false
     # Pinned to a specific stable version to avoid breaking changes.
     default: 'v1.5.1'
+  rust_version:
+    type: string
+    description: 'Version of Rust toolchain to use.'
+    required: false
+    # Pin to nightly 1.89 version that all our repos are using
+    default: 'nightly-2025-05-23'
   enable_cache:
     type: string
     description: 'Whether to enable cache.'
@@ -79,6 +85,7 @@ runs:
         # To fix rate limiting issues with GitHub API
         GITHUB_TOKEN: ${{ github.token }}
       with:
+        channel: ${{ inputs.rust_version || 'stable' }}
         inherit-toolchain: true
         components: 'rustfmt,clippy'
         bins: 'cargo-nextest,cargo-llvm-cov'

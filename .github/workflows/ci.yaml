@@ -20,6 +20,7 @@ jobs:
     env:
       # To avoid uv warning about cache
       UV_LINK_MODE: copy
+      ZKSYNC_OS_TEST_TAG: v0.2.5
     steps:
 
       - name: Checkout repo
@@ -28,24 +29,23 @@ jobs:
       - name: Setup runner
         uses: ./.github/actions/runner-setup
 
-      - name: Checkout zkos-wrapper
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          repository: matter-labs/zkos-wrapper
-          path: workspace/zkos-wrapper
+      - name: Checkout dependencies
+        uses: ./.github/actions/checkout-deps
 
-      - name: Checkout zksync-airbender
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          repository: matter-labs/zksync-airbender
-          path: workspace/zksync-airbender
+      # - name: Update wrapper
+      #   run: |
+      #     REPO_DIR=${PWD}/workspace/zkos-wrapper \
+      #     WORKSPACE=${PWD}/workspace \
+      #     ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
+      #     uv run -m scripts.update_wrapper
 
-      - name: Update wrapper
+      - name: Update vk
         run: |
-          REPO_DIR=${PWD}/workspace/zkos-wrapper \
-          WORKSPACE=${PWD}/workspace \
-          ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
-          uv run -m scripts.update_wrapper
+          REPO_DIR=${PWD}/workspace/era-contracts \
+          ZKOS_WRAPPER_PATH=${PWD}/workspace/zkos-wrapper \
+          ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
+            uv run -m scripts.update_vk
+          git diff -C ${PWD}/workspace/era-contracts
 
 
   # Special job that allows some of the jobs to be skipped or failed
