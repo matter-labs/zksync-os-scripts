@@ -24,7 +24,7 @@ jobs:
       WORKSPACE: ${{ github.workspace }}/workspace
       ZKSYNC_OS_EXECUTION_VERSION: 5
       PROVING_VERSION: 6
-      PROTOCOL_VERSION: 'v31.0'
+      PROTOCOL_VERSION: 'v30.2'
     steps:
 
       - name: Checkout repo
@@ -49,6 +49,7 @@ jobs:
           ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
           ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
             uv run -m scripts.update_vk
+          git status -C ${WORKSPACE}/era-contracts
           git diff -C ${WORKSPACE}/era-contracts
 
       - name: Update server
@@ -60,6 +61,8 @@ jobs:
           PROVING_VERSION=${PROVING_VERSION} \
           PROTOCOL_VERSION=${PROTOCOL_VERSION} \
             uv run -m scripts.update_server
+
+          git status -C ${WORKSPACE}/zksync-os-server
           git diff -C ${WORKSPACE}/zksync-os-server
 
 
