@@ -55,32 +55,32 @@ Common environment variables used across all scripts include:
 - `WORKSPACE` - path to a temporary working directory that the script can use for intermediate files. Defaults to `${PWD}`.
 - `VERBOSE` - if set to `1` or `true`, enables verbose logging for debugging purposes.
 
-
 ## Available scripts
 
-### `update_zkos_wrapper.py`
+### `update_wrapper.py`
 
-Updates `zksync-os-wrapper` repository with the new SNARK proof to prepare verification key generation on the next step using `update_vk.py` script.
+The script updates `zkos-wrapper` repository
+with the new SNARK proof to prepare verification key generation on the next step using `update_vk.py` script.
 
 Usage:
 ```bash
 REPO_DIR=/path/to/zkos-wrapper \
 ZKSYNC_AIRBENDER_PATH=/path/to/zksync-airbender \
-    uv run -m scripts.update_zkos_wrapper
+    uv run -m scripts.update_wrapper
 ```
 
 ### `update_vk.py`
 
 Generates new verification keys.
 
-1. Downloads the trusted setup (CRS) file
-2. Downloads the ZKsync OS binary for a specified release tag
-3. Generates a new SNARK verification key
-4. Uses zkos-wrapper to derive the verification key from the OS binary and trusted setup
-5. Regenerates verifier smart contracts
-6. Feeds the new verification key into the verifier contract generator
-7. Produces updated Solidity verifier contracts for ZKsync OS
-8. Recomputes hashes and fixtures affected by the verifier changes
+- Downloads the trusted setup (CRS) file
+- Downloads the ZKsync OS binary for a specified release tag
+- Generates a new SNARK verification key
+- Uses zkos-wrapper to derive the verification key from the OS binary and trusted setup
+- Regenerates verifier smart contracts
+- Feeds the new verification key into the verifier contract generator
+- Produces updated Solidity verifier contracts for ZKsync OS
+- Recomputes hashes and fixtures affected by the verifier changes
 
 Usage:
 ```bash
@@ -92,4 +92,41 @@ ZKSYNC_OS_TAG=<new_zksync_os_tag> \
 
 ### `update_server.py`
 
+Updates ZKsync OS Server with the new genesis and state.
 
+- Build zkstack CLI: Compiles the zkstack command used to create/init ecosystems and chains.
+- Build L1 contracts: Builds L1 contracts.
+- Generate genesis.json.
+- Create default (single-chain) local setup.
+- Create multi-chain local setup.
+- Fund local wallets.
+- Deploy L1 contracts.
+- Extract and write config outputs.
+- Generate L1 -> L2 deposit tx.
+- Update prover config VK hash.
+- Regenerate `contracts.json` used by the L1 watcher.
+
+Usage:
+```bash
+REPO_DIR=/path/to/zksync-os-server \
+ERA_CONTRACTS_PATH=/path/to/era-contracts \
+ZKSYNC_ERA_PATH=/path/to/zksync-era \
+ZKSYNC_OS_EXECUTION_VERSION=<execution_version> \
+PROVING_VERSION=<proving_version> \
+PROTOCOL_VERSION=<protocol_version> \
+    uv run -m scripts.update_server
+```
+
+### `update_prover.py`
+
+Updates ZKsync Airbender Prover with a new ZKsync OS binary.
+
+- Replaces ZKsync OS binary used by the prover with a new version corresponding to the specified release tag.
+- Updates prover configuration to reference the new binary and its associated parameters.
+
+Usage:
+```bash
+REPO_DIR=/path/to/zksync-airbender-prover \
+ZKSYNC_OS_TAG=<new_zksync_os_tag> \
+    uv run -m scripts.update_prover
+```

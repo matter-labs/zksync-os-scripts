@@ -315,4 +315,5 @@ if __name__ == "__main__":
         "ZKSYNC_ERA_PATH",
         "ZKSYNC_OS_EXECUTION_VERSION",
         "PROVING_VERSION",
+        "PROTOCOL_VERSION",
     ))
