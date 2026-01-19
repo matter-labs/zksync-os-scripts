@@ -237,8 +237,8 @@ def script(ctx: ScriptCtx) -> None:
         {
             "yarn": ">=1.22",
             "anvil": "==1.5.1",
-            "cast": "==0.0.4",
-            "forge": "==0.0.4",
+            "cast": "==1.3.5",
+            "forge": "==1.3.5",
             "cargo": ">=1.89",
         }
     )

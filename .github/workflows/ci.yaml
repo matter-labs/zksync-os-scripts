@@ -22,7 +22,6 @@ jobs:
       UV_LINK_MODE: copy
       ZKSYNC_OS_TEST_TAG: v0.2.5
       WORKSPACE: ${{ github.workspace }}/workspace
-      VERBOSE: true
       ZKSYNC_OS_EXECUTION_VERSION: 5
       PROVING_VERSION: 6
       PROTOCOL_VERSION: 'v31.0'
@@ -60,7 +59,7 @@ jobs:
           ZKSYNC_OS_EXECUTION_VERSION=${ZKSYNC_OS_EXECUTION_VERSION} \
           PROVING_VERSION=${PROVING_VERSION} \
           PROTOCOL_VERSION=${PROTOCOL_VERSION} \
-              uv run -m scripts.update_server
+            uv run -m scripts.update_server
           git diff -C ${WORKSPACE}/zksync-os-server
 
 
