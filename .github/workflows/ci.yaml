@@ -22,11 +22,11 @@ jobs:
       UV_LINK_MODE: copy
     steps:
 
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
       - name: Setup runner
         uses: ./.github/actions/runner-setup
-
-      - name: Checkout scripts
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Checkout zkos-wrapper
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
