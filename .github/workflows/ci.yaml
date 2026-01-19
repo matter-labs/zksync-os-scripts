@@ -21,6 +21,11 @@ jobs:
       # To avoid uv warning about cache
       UV_LINK_MODE: copy
       ZKSYNC_OS_TEST_TAG: v0.2.5
+      WORKSPACE: ${{ github.workspace }}/workspace
+      VERBOSE: true
+      ZKSYNC_OS_EXECUTION_VERSION: 5
+      PROVING_VERSION: 6
+      PROTOCOL_VERSION: 'v31.0'
     steps:
 
       - name: Checkout repo
@@ -41,11 +46,22 @@ jobs:
 
       - name: Update vk
         run: |
-          REPO_DIR=${PWD}/workspace/era-contracts \
-          ZKOS_WRAPPER_PATH=${PWD}/workspace/zkos-wrapper \
+          REPO_DIR=${WORKSPACE}/era-contracts \
+          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
           ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
             uv run -m scripts.update_vk
-          git diff -C ${PWD}/workspace/era-contracts
+          git diff -C ${WORKSPACE}/era-contracts
+
+      - name: Update server
+        run: |
+          REPO_DIR=${WORKSPACE}/zksync-os-server \
+          ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
+          ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
+          ZKSYNC_OS_EXECUTION_VERSION=${ZKSYNC_OS_EXECUTION_VERSION} \
+          PROVING_VERSION=${PROVING_VERSION} \
+          PROTOCOL_VERSION=${PROTOCOL_VERSION} \
+              uv run -m scripts.update_server
+          git diff -C ${WORKSPACE}/zksync-os-server
 
 
   # Special job that allows some of the jobs to be skipped or failed

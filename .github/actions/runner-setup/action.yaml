@@ -141,3 +141,11 @@ runs:
     - name: Install python deps
       shell: 'bash -ex {0}'
       run: uv sync
+
+    - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+      with:
+        node-version: 22
+
+    - name: Install Yarn
+      shell: 'bash -ex {0}'
+      run: npm install -g yarn
