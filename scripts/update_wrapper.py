@@ -6,6 +6,16 @@ import lib.utils as utils
 
 
 def script(ctx: ScriptCtx) -> None:
+
+    # ------------------------------------------------------------------ #
+    # Tooling check
+    # ------------------------------------------------------------------ #
+    ctx.require_cmds(
+        {
+            "cargo": ">=1.89",
+        }
+    )
+
     # ------------------------------------------------------------------ #
     with ctx.section("Building wrapper", expected=10):
         ctx.sh("cargo run --release --bin wrapper_generator")
