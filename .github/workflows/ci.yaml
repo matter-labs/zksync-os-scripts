@@ -32,18 +32,19 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: matter-labs/zkos-wrapper
-          path: zkos-wrapper
+          path: workspace/zkos-wrapper
 
       - name: Checkout zksync-airbender
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: matter-labs/zksync-airbender
-          path: zksync-airbender
+          path: workspace/zksync-airbender
 
       - name: Update wrapper
         run: |
-          REPO_DIR=${WORKSPACE}/zkos-wrapper \
-          ZKSYNC_AIRBENDER_PATH=${WORKSPACE}/zksync-airbender \
+          REPO_DIR=${PWD}/workspace/zkos-wrapper \
+          WORKSPACE=${PWD}/workspace \
+          ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
           uv run -m scripts.update_wrapper
 
 
