@@ -9,6 +9,12 @@ inputs:
     required: false
     # Pinned to a specific stable version to avoid breaking changes.
     default: 'v1.5.1'
+  zksync_foundry_version:
+    type: string
+    description: 'Version of zksync-foundry to use.'
+    required: false
+    # Pinned to a specific stable version to avoid breaking changes.
+    default: 'v0.0.30'
   rust_version:
     type: string
     description: 'Version of Rust toolchain to use.'
@@ -101,10 +107,29 @@ runs:
         cache-workspace-crates: true
         save-if: ${{ inputs.save_cache == 'true' }}
 
-    - name: Install Foundry
-      uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+    - name: Install Foundry-ZKsync
+      uses: dutterbutter/foundry-zksync-toolchain@v1
+      # version should correspond to
+      # https://github.com/matter-labs/era-contracts/blob/draft-v31/recompute_hashes.sh#L7
       with:
-        version: ${{ inputs.foundry_version }}
+        version: '${{ inputs.zksync_foundry_version }}'
+
+    - name: Install foundry
+      shell: "bash -ex {0}"
+      env:
+        FOUNDRY_URL: "https://github.com/foundry-rs/foundry/releases/download"
+        VERSION: "${{ inputs.foundry_version }}"
+        INSTALL_DIR: "foundry"
+      run: |
+        mkdir "${INSTALL_DIR}"
+        curl -LO ${FOUNDRY_URL}/${VERSION}/foundry_${VERSION}_linux_amd64.tar.gz
+        tar zxf foundry_${VERSION}_linux_amd64.tar.gz -C ./${INSTALL_DIR}
+        chmod +x ./${INSTALL_DIR}/forge ./${INSTALL_DIR}/cast
+        echo "${PWD}/${INSTALL_DIR}" >> "${GITHUB_PATH}"
+        # Remove forge and cast as they should be used from foundry-zksync
+        rm -f ./${INSTALL_DIR}/forge ./${INSTALL_DIR}/cast
+        ./${INSTALL_DIR}/anvil --version
+        echo "Installed foundry version: ${VERSION}"
 
     - name: Install uv
       uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0

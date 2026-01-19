@@ -27,7 +27,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file
     # ------------------------------------------------------------------ #
-    with ctx.section("Download CRS file", expected=15):
+    with ctx.section("Download CRS file", expected=30):
         crs_url = (
             "https://storage.googleapis.com/matterlabs-setup-keys-europe/"
             "setup-keys/setup_2^24.key"
@@ -38,7 +38,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Download ZKsync OS binary (multiblock_batch.bin) for given tag
     # ------------------------------------------------------------------ #
-    with ctx.section("Download ZKsync OS binary", expected=20):
+    with ctx.section("Download ZKsync OS binary", expected=1):
         asset_name = "multiblock_batch.bin"
         asset_url = f"{zksync_os_url}/releases/download/{zksync_os_tag}/{asset_name}"
         output_file = ctx.tmp_dir / asset_name
@@ -47,7 +47,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Generate SNARK VK using zkos-wrapper
     # ------------------------------------------------------------------ #
-    with ctx.section("Generate SNARK VK", expected=60):
+    with ctx.section("Generate SNARK VK", expected=430):
         vk_path = ctx.tmp_dir / "snark_vk_expected.json"
         if vk_path.is_file():
             vk_path.unlink()
@@ -65,7 +65,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Copy VK and generate verifier contracts
     # ------------------------------------------------------------------ #
-    with ctx.section("Copy VK and generate verifier contracts", expected=40):
+    with ctx.section("Copy VK and generate verifier contracts", expected=170):
         # Copy VK JSON into verifier-gen data
         target_vk_json = (
                 ctx.repo_dir
@@ -100,7 +100,7 @@ def script(ctx: ScriptCtx) -> None:
     # Update test hashes
     # ------------------------------------------------------------------ #
     with ctx.section("Update test hashes", expected=120):
-        ctx.sh(f"{ctx.repo_dir}/recompute_hashes.sh")
+        ctx.sh(f"bash -c {ctx.repo_dir}/recompute_hashes.sh")
 
 
 if __name__ == "__main__":
