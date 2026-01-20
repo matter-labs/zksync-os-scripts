@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 from packaging.version import Version
 
+
 def require_env(name: str, default: str = None) -> str:
     """
     Return the value of a required environment variable or exit with
@@ -19,6 +20,7 @@ def require_env(name: str, default: str = None) -> str:
         # Keep it simple; run_main will not even start if this fails.
         raise SystemExit(f"Missing required environment variable: {name}")
     return val
+
 
 def load_yaml(path: Path) -> dict:
     if not path.exists():
@@ -38,6 +40,7 @@ def clean_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
+
 def remove_dir(path: Path) -> Path:
     """
     Remove a directory if it exists.
@@ -48,6 +51,7 @@ def remove_dir(path: Path) -> Path:
         shutil.rmtree(path, ignore_errors=True)
     return path
 
+
 def cp(src: Path, dst: Path) -> None:
     """Copy a file"""
     if not src.exists():
@@ -56,6 +60,7 @@ def cp(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
     if not dst.exists():
         raise FileNotFoundError(f"File not found after copy: {dst}")
+
 
 def download(url: str, dest: Path, force: bool = False) -> None:
     """Minimal, safe downloader"""
@@ -75,6 +80,7 @@ def download(url: str, dest: Path, force: bool = False) -> None:
         tmp.unlink(missing_ok=True)
         raise
 
+
 def extract_vk_hash(verifier_plonk_sol: Path) -> str:
     """
     Reads a .sol verifier file and extracts the VK hash from its @dev comment.
@@ -84,9 +90,7 @@ def extract_vk_hash(verifier_plonk_sol: Path) -> str:
     If output_path is provided (or default None), it writes to .tmp/vk_hash.txt.
     Returns the hash string.
     """
-    vk_hash_re = re.compile(
-        r"hash of (0x[0-9a-fA-F]{64})"
-    )
+    vk_hash_re = re.compile(r"hash of (0x[0-9a-fA-F]{64})")
     if not verifier_plonk_sol.is_file():
         raise FileNotFoundError(f"Verifier file not found: {verifier_plonk_sol}")
     content = verifier_plonk_sol.read_text(encoding="utf-8")
@@ -95,6 +99,7 @@ def extract_vk_hash(verifier_plonk_sol: Path) -> str:
         raise RuntimeError(f"Could not find VK hash in {verifier_plonk_sol}")
     vk_hash = match.group(1)
     return vk_hash
+
 
 def get_cmd_version(cmd: str) -> Version:
     _VERSION_RE = re.compile(r"\d+\.\d+(\.\d+)?")
@@ -113,6 +118,7 @@ def get_cmd_version(cmd: str) -> Version:
 
     return Version(match.group())
 
+
 def normalize_hex(value: str | int, length: int | None = None) -> str:
     if isinstance(value, str):
         return value.strip()
@@ -122,10 +128,11 @@ def normalize_hex(value: str | int, length: int | None = None) -> str:
         return f"0x{value:0{length}x}"
     raise TypeError(f"Expected str or int, got {type(value)}")
 
+
 @contextlib.contextmanager
 def anvil_dump_state(
-        *,
-        l1_state_file: Path,
+    *,
+    l1_state_file: Path,
 ):
     """
     Run Anvil (with --dump-state) for the duration of the block.
@@ -175,6 +182,7 @@ def anvil_dump_state(
             except Exception:
                 pass
             _ = proc.wait(timeout=5)
+
 
 def addresses_from_wallets_yaml(data: dict) -> set[str]:
     """

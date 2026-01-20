@@ -3,10 +3,11 @@ from pathlib import Path
 import yaml
 from . import utils
 
+
 def update_rust_const(
-        file: Path | str,
-        const_name: str,
-        new_value: str,
+    file: Path | str,
+    const_name: str,
+    new_value: str,
 ) -> None:
     """
     Update a Rust `&str` constant in a file.
@@ -50,12 +51,12 @@ def update_rust_const(
     # (?P<value>[^"]*)   - the old value (anything up to the closing quote)
     # ";                 - closing quote and semicolon
     pattern = re.compile(
-        rf'''(?m)
+        rf"""(?m)
             ^
             (?P<prefix>\s*pub\s+const\s+{re.escape(const_name)}\s*:\s*&(?:'static\s*)?str\s*=\s*")
             (?P<value>[^"]*)
             (?P<suffix>"\s*;)
-            ''',
+            """,
         re.VERBOSE,
     )
 
@@ -69,13 +70,14 @@ def update_rust_const(
         # Nothing matched – likely a format change or wrong const name.
         raise Exception(
             f"Failed to update {const_name} in {path} "
-            f"(matching `pub const {const_name}: &str = \"...\";` not found)"
+            f'(matching `pub const {const_name}: &str = "...";` not found)'
         )
     path.write_text(new_text, encoding="utf-8")
 
+
 def update_operator_keys(
-        config_rs: Path,
-        wallets_yaml: Path,
+    config_rs: Path,
+    wallets_yaml: Path,
 ) -> None:
     """
     Reads operator private keys from wallets.yaml and updates
@@ -83,9 +85,9 @@ def update_operator_keys(
     """
     # Map wallet names → Rust const names
     mapping = {
-        "blob_operator":   "OPERATOR_COMMIT_PK",
-        "prove_operator":  "OPERATOR_PROVE_PK",
-        "execute_operator":"OPERATOR_EXECUTE_PK",
+        "blob_operator": "OPERATOR_COMMIT_PK",
+        "prove_operator": "OPERATOR_PROVE_PK",
+        "execute_operator": "OPERATOR_EXECUTE_PK",
     }
     data = utils.load_yaml(wallets_yaml)
     for wallet_name, const in mapping.items():
@@ -99,9 +101,10 @@ def update_operator_keys(
         pk = utils.normalize_hex(pk_raw, length=64)
         update_rust_const(config_rs, const, pk)
 
+
 def get_contract_address(
-        contracts_yaml: Path,
-        field: str,
+    contracts_yaml: Path,
+    field: str,
 ) -> str:
     """
     Reads a contract address from contracts.yaml and returns it as a
@@ -114,11 +117,12 @@ def get_contract_address(
     address = utils.normalize_hex(val, length=40)
     return address
 
+
 def update_chain_config_yaml(
-        yaml_path: str | Path,
-        *,
-        contracts_yaml: str | Path,
-        wallets_yaml: str | Path,
+    yaml_path: str | Path,
+    *,
+    contracts_yaml: str | Path,
+    wallets_yaml: str | Path,
 ) -> None:
     yaml_path = Path(yaml_path)
 
@@ -162,12 +166,12 @@ def update_chain_config_yaml(
             default_flow_style=False,
             sort_keys=False,
         )
-        f.write("\n") # keep POSIX newline
+        f.write("\n")  # keep POSIX newline
 
 
 def update_contracts_addresses(
-        config_rs: Path,
-        contracts_yaml: Path,
+    config_rs: Path,
+    contracts_yaml: Path,
 ) -> None:
     """
     Reads bridgehub + bytecode supplier addresses from a contracts.yaml
@@ -177,7 +181,7 @@ def update_contracts_addresses(
     data = utils.load_yaml(contracts_yaml)
 
     mapping = {
-        "bridgehub_proxy_addr":       "BRIDGEHUB_ADDRESS",
+        "bridgehub_proxy_addr": "BRIDGEHUB_ADDRESS",
         "l1_bytecodes_supplier_addr": "BYTECODE_SUPPLIER_ADDRESS",
     }
 
@@ -188,9 +192,10 @@ def update_contracts_addresses(
         address = utils.normalize_hex(val, length=40)
         update_rust_const(config_rs, rust_const, address)
 
+
 def update_vk_hash(
-        file: Path,
-        proving_version: str,
+    file: Path,
+    proving_version: str,
 ) -> None:
     """
     Update or insert a V{execution_version}_VK_HASH block in the given Rust file.
@@ -203,7 +208,14 @@ def update_vk_hash(
     os_version = utils.require_env("ZKSYNC_OS_TAG", "local")
     era_contracts_path = Path(utils.require_env("ERA_CONTRACTS_PATH")).resolve()
 
-    vk_hash_file = era_contracts_path / "l1-contracts" / "contracts" / "state-transition" / "verifiers" / "ZKsyncOSVerifierPlonk.sol"
+    vk_hash_file = (
+        era_contracts_path
+        / "l1-contracts"
+        / "contracts"
+        / "state-transition"
+        / "verifiers"
+        / "ZKsyncOSVerifierPlonk.sol"
+    )
     vk_hash = utils.extract_vk_hash(vk_hash_file)
 
     text = file.read_text(encoding="utf-8")
@@ -227,7 +239,7 @@ def update_vk_hash(
         )
         """,
         re.VERBOSE | re.MULTILINE,
-        )
+    )
 
     match = pattern.search(text)
     if match:
@@ -246,7 +258,7 @@ def update_vk_hash(
             """,
             text,
             re.VERBOSE | re.MULTILINE | re.DOTALL,
-            )
+        )
     )
 
     if all_blocks:
@@ -254,7 +266,9 @@ def update_vk_hash(
         insert_pos = last.end()
         text = text[:insert_pos] + "\n" + new_block + text[insert_pos:]
     else:
-        raise SystemExit(f"No existing VK hash blocks found in {file} to edit or append. "
-                 f"Please, check the file and update the script accordingly.")
+        raise SystemExit(
+            f"No existing VK hash blocks found in {file} to edit or append. "
+            f"Please, check the file and update the script accordingly."
+        )
 
     file.write_text(text, encoding="utf-8")

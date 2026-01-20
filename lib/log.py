@@ -8,8 +8,10 @@ from rich.logging import RichHandler
 # One shared console
 _console = Console(file=sys.stdout)
 
+
 def get_console() -> Console:
     return _console
+
 
 def setup_logger(name: str, log_file: Path | None, verbose: bool) -> logging.Logger:
     logger = logging.getLogger(name)
@@ -23,7 +25,7 @@ def setup_logger(name: str, log_file: Path | None, verbose: bool) -> logging.Log
         show_path=False,
         show_time=False,
         console=_console,
-        show_level=False
+        show_level=False,
     )
     console.setLevel(logging.DEBUG if verbose else logging.INFO)
     logger.addHandler(console)

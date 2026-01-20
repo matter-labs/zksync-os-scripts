@@ -12,6 +12,7 @@ Steps:
 - Generate deposit tx
 - Stop Anvil
 """
+
 from pathlib import Path
 
 from lib.ctx import ScriptCtx
@@ -82,12 +83,12 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
         """
     )
 
-def init_ecosystem(
-        ctx: ScriptCtx,
-        ecosystem_name: str,
-        chains: list[str],
-) -> None:
 
+def init_ecosystem(
+    ctx: ScriptCtx,
+    ecosystem_name: str,
+    chains: list[str],
+) -> None:
     era_contracts_path = ctx.path_from_env("ERA_CONTRACTS_PATH", "era-contracts")
     zksync_era_path = ctx.path_from_env("ZKSYNC_ERA_PATH", "zksync-era")
     protocol_version = utils.require_env("PROTOCOL_VERSION")
@@ -123,7 +124,7 @@ def init_ecosystem(
                 {zkstack_bin}
                   ctm set-ctm-contracts
                   --contracts-src-path {era_contracts_path}
-                  --default-configs-src-path {ctx.repo_dir / "local-chains" / protocol_version / "default" }
+                  --default-configs-src-path {ctx.repo_dir / "local-chains" / protocol_version / "default"}
                   --zksync-os
                 """,
             cwd=ecosystem_dir,
@@ -154,7 +155,9 @@ def init_ecosystem(
         # ------------------------------------------------------------------ #
         # Start Anvil
         # ------------------------------------------------------------------ #
-        with ctx.section(f"Generating zkos-l1-state.json for {ecosystem_name}", expected=250):
+        with ctx.section(
+            f"Generating zkos-l1-state.json for {ecosystem_name}", expected=250
+        ):
             base = ctx.repo_dir / "local-chains" / protocol_version / ecosystem_name
             l1_state_file = base / "zkos-l1-state.json"
             with utils.anvil_dump_state(l1_state_file=l1_state_file):
@@ -186,13 +189,21 @@ def init_ecosystem(
                 # Update contract addresses and operator keys
                 # ------------------------------------------------------------------ #
                 ctx.logger.info("Updating contract addresses...")
-                contracts_yaml = ecosystem_dir / "chains" / chain / "configs"  / "contracts.yaml"
-                chain_wallets_yaml = ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
-                chain_config_yaml = base / f"chain_{chain}.yaml" if ecosystem_name == "multi_chain" else base / "config.yaml"
+                contracts_yaml = (
+                    ecosystem_dir / "chains" / chain / "configs" / "contracts.yaml"
+                )
+                chain_wallets_yaml = (
+                    ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
+                )
+                chain_config_yaml = (
+                    base / f"chain_{chain}.yaml"
+                    if ecosystem_name == "multi_chain"
+                    else base / "config.yaml"
+                )
                 edit_server.update_chain_config_yaml(
                     chain_config_yaml,
                     contracts_yaml=contracts_yaml,
-                    wallets_yaml=chain_wallets_yaml
+                    wallets_yaml=chain_wallets_yaml,
                 )
                 if ecosystem_name == "multi_chain":
                     wallets_out = base / f"wallets_{chain}.yaml"
@@ -221,8 +232,8 @@ def init_ecosystem(
 # Main orchestration
 # ---------------------------------------------------------------------------
 
-def script(ctx: ScriptCtx) -> None:
 
+def script(ctx: ScriptCtx) -> None:
     # Paths & constants
     era_contracts_path = ctx.path_from_env("ERA_CONTRACTS_PATH", "era-contracts")
     zksync_era_path = ctx.path_from_env("ZKSYNC_ERA_PATH", "zksync-era")
@@ -244,17 +255,6 @@ def script(ctx: ScriptCtx) -> None:
     )
 
     # ------------------------------------------------------------------ #
-    # Build zkstack CLI
-    # ------------------------------------------------------------------ #
-    with ctx.section("Build zkstack CLI", expected=100):
-        ctx.sh(
-            """
-            cargo build --release --bin zkstack
-            """,
-            cwd=zksync_era_path / "zkstack_cli",
-        )
-
-    # ------------------------------------------------------------------ #
     # Build L1 contracts
     # ------------------------------------------------------------------ #
     with ctx.section("Build L1 contracts", expected=120):
@@ -263,6 +263,17 @@ def script(ctx: ScriptCtx) -> None:
             yarn build:foundry
             """,
             cwd=era_contracts_path / "l1-contracts",
+        )
+
+    # ------------------------------------------------------------------ #
+    # Build zkstack CLI
+    # ------------------------------------------------------------------ #
+    with ctx.section("Build zkstack CLI", expected=100):
+        ctx.sh(
+            """
+            cargo build --release --bin zkstack
+            """,
+            cwd=zksync_era_path / "zkstack_cli",
         )
 
     # ------------------------------------------------------------------ #
@@ -301,19 +312,23 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     with ctx.section("Regenerate contracts.json", expected=30):
         ctx.sh("yarn install", cwd=era_contracts_path / "l1-contracts")
-        ctx.sh(f"""
+        ctx.sh(
+            f"""
             yarn write-factory-deps-zksync-os
             --output {ctx.repo_dir}/lib/l1_watcher/src/factory_deps/contracts.json
             """,
-               cwd=era_contracts_path / "l1-contracts"
-               )
+            cwd=era_contracts_path / "l1-contracts",
+        )
 
 
 if __name__ == "__main__":
-    run_script(script, required_env=(
-        "ERA_CONTRACTS_PATH",
-        "ZKSYNC_ERA_PATH",
-        "ZKSYNC_OS_EXECUTION_VERSION",
-        "PROVING_VERSION",
-        "PROTOCOL_VERSION",
-    ))
+    run_script(
+        script,
+        required_env=(
+            "ERA_CONTRACTS_PATH",
+            "ZKSYNC_ERA_PATH",
+            "ZKSYNC_OS_EXECUTION_VERSION",
+            "PROVING_VERSION",
+            "PROTOCOL_VERSION",
+        ),
+    )

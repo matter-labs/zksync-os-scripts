@@ -27,7 +27,7 @@ inputs:
     type: string
     description: 'Version of zksync-era to checkout.'
     required: false
-    default: 'kl/medium-interop-support'
+    default: 'draft-v31'
   era-contracts-version:
     type: string
     description: 'Version of era-contracts to checkout.'
@@ -62,13 +62,6 @@ runs:
         repository: matter-labs/zksync-airbender
         path: ${{ inputs.checkout-dir }}/zksync-airbender
         ref: ${{ inputs.zksync-airbender-version }}
-
-    # - name: Checkout zksync-os
-    #   uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-    #   with:
-    #     repository: matter-labs/zksync-os
-    #     path: ${{ inputs.checkout-dir }}/zksync-os
-    #     ref: ${{ inputs.zksync-os-version }}
 
     - name: Checkout zksync-era
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

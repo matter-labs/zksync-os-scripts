@@ -5,8 +5,8 @@ from lib.entry import run_script
 from lib.constants import ZKSYNC_OS_URL
 import lib.utils as utils
 
-def script(ctx: ScriptCtx) -> None:
 
+def script(ctx: ScriptCtx) -> None:
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
     zksync_os_url = utils.require_env("ZKSYNC_OS_URL", ZKSYNC_OS_URL)
     # ------------------------------------------------------------------ #

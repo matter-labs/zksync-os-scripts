@@ -10,9 +10,11 @@ from .utils import require_env
 
 _console = get_console()
 
+
 def _env_bool(name, default=False):
     val = require_env(name, str(default))
     return default if val is None else val.lower() in {"1", "true", "yes", "on"}
+
 
 def init_ctx(required_env) -> ScriptCtx:
     # Ensure required env vars exist (and are non-empty)
@@ -44,6 +46,7 @@ def init_ctx(required_env) -> ScriptCtx:
     )
     return ctx
 
+
 def run_script(script, *, required_env=()):
     start = perf_counter()
     try:
@@ -52,8 +55,7 @@ def run_script(script, *, required_env=()):
         # Pretty header
         _console.rule(f"🚀 Running {ctx.script_name}")
         _console.print(
-            f"[dim]Workspace :[/] {ctx.workspace}\n"
-            f"[dim]Component :[/] {ctx.component}"
+            f"[dim]Workspace :[/] {ctx.workspace}\n[dim]Component :[/] {ctx.component}"
         )
 
         if _env_bool("DRY_RUN"):

@@ -7,7 +7,6 @@ from lib.constants import ZKSYNC_OS_URL
 
 
 def script(ctx: ScriptCtx) -> None:
-
     # ------------------------------------------------------------------ #
     # Tooling check
     # ------------------------------------------------------------------ #
@@ -55,8 +54,8 @@ def script(ctx: ScriptCtx) -> None:
             f"""
             cargo run --bin wrapper --release -- \
               generate-snark-vk
-              --input-binary {ctx.tmp_dir / 'multiblock_batch.bin'}
-              --trusted-setup-file {ctx.tmp_dir / 'setup.key'}
+              --input-binary {ctx.tmp_dir / "multiblock_batch.bin"}
+              --trusted-setup-file {ctx.tmp_dir / "setup.key"}
               --output-dir {ctx.tmp_dir}
             """,
             cwd=zkos_wrapper_path,
@@ -68,11 +67,11 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Copy VK and generate verifier contracts", expected=170):
         # Copy VK JSON into verifier-gen data
         target_vk_json = (
-                ctx.repo_dir
-                / "tools"
-                / "verifier-gen"
-                / "data"
-                / "ZKsyncOS_plonk_scheduler_key.json"
+            ctx.repo_dir
+            / "tools"
+            / "verifier-gen"
+            / "data"
+            / "ZKsyncOS_plonk_scheduler_key.json"
         )
         utils.cp(ctx.tmp_dir / "snark_vk_expected.json", target_vk_json)
 
@@ -85,11 +84,11 @@ def script(ctx: ScriptCtx) -> None:
 
         # Copy generated contracts into l1-contracts
         verifiers_dir = (
-                ctx.repo_dir
-                / "l1-contracts"
-                / "contracts"
-                / "state-transition"
-                / "verifiers"
+            ctx.repo_dir
+            / "l1-contracts"
+            / "contracts"
+            / "state-transition"
+            / "verifiers"
         )
         for contract in ("ZKsyncOSVerifierPlonk", "ZKsyncOSVerifierFflonk"):
             src = ctx.repo_dir / "tools" / "verifier-gen" / "data" / f"{contract}.sol"

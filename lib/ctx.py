@@ -15,6 +15,7 @@ from shutil import which
 from packaging.specifiers import SpecifierSet
 from . import utils
 from .log import get_console
+
 _console = get_console()
 
 
@@ -72,12 +73,12 @@ class ScriptCtx:
                 self._log_section_result(title, duration, expected, success=True)
 
     def _log_section_result(
-            self,
-            title: str,
-            duration: float,
-            expected: float | None,
-            *,
-            success: bool,
+        self,
+        title: str,
+        duration: float,
+        expected: float | None,
+        *,
+        success: bool,
     ) -> None:
         msg = f"{title}: {'SUCCESS' if success else 'FAILED'} ({duration:.1f}s"
         if expected is not None and expected > 0:
@@ -141,11 +142,11 @@ class ScriptCtx:
             self.logger.info(f"Found {tool} {version} ✔")
 
     def sh(
-            self,
-            cmd: Union[str, Iterable[str]],
-            *,
-            cwd: Optional[Path | str] = None,
-            env: Optional[Mapping[str, str]] = None,
+        self,
+        cmd: Union[str, Iterable[str]],
+        *,
+        cwd: Optional[Path | str] = None,
+        env: Optional[Mapping[str, str]] = None,
     ) -> None:
         """
         Run a command safely.
