@@ -49,8 +49,12 @@ jobs:
           ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
           ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
             uv run -m scripts.update_vk
-          git status -C ${WORKSPACE}/era-contracts
-          git diff -C ${WORKSPACE}/era-contracts
+          (
+            cd ${WORKSPACE}/era-contracts
+            git status
+            git diff
+          )
+
 
       - name: Update server
         run: |
@@ -61,9 +65,11 @@ jobs:
           PROVING_VERSION=${PROVING_VERSION} \
           PROTOCOL_VERSION=${PROTOCOL_VERSION} \
             uv run -m scripts.update_server
-
-          git status -C ${WORKSPACE}/zksync-os-server
-          git diff -C ${WORKSPACE}/zksync-os-server
+          (
+            cd ${WORKSPACE}/zksync-os-server
+            git status
+            git diff
+          )
 
 
   # Special job that allows some of the jobs to be skipped or failed
