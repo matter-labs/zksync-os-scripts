@@ -45,6 +45,13 @@ jobs:
       - name: Setup runner
         uses: ./.github/actions/runner-setup
 
+      - name: Update contracts in zksync-era
+        run: |
+          rm -rf ${WORKSPACE}/zksync-era/contracts
+          ls -la ${WORKSPACE}/era-contracts
+          ls -la ${WORKSPACE}/zksync-era
+          ln -s ${WORKSPACE}/era-contracts ${WORKSPACE}/zksync-era/contracts
+
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
 
