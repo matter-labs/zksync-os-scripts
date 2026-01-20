@@ -27,7 +27,7 @@ inputs:
     type: string
     description: 'Version of zksync-era to checkout.'
     required: false
-    default: 'kl/medium-interop-support'
+    default: 'draft-v31'
   era-contracts-version:
     type: string
     description: 'Version of era-contracts to checkout.'
