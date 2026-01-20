@@ -27,12 +27,12 @@ inputs:
     type: string
     description: 'Version of zksync-era to checkout.'
     required: false
-    default: 'zkstack-for-zksync-os'
+    default: 'kl/medium-interop-support'
   era-contracts-version:
     type: string
     description: 'Version of era-contracts to checkout.'
     required: false
-    default: 'zksync-os-stable'
+    default: 'draft-v31'
   zksync-os-server-version:
     type: string
     description: 'Version of zksync-os-server to checkout.'

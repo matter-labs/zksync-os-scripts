@@ -14,7 +14,7 @@ inputs:
     description: 'Version of zksync-foundry to use.'
     required: false
     # Pinned to a specific stable version to avoid breaking changes.
-    default: 'v0.0.30'
+    default: 'v0.1.5'
   rust_version:
     type: string
     description: 'Version of Rust toolchain to use.'

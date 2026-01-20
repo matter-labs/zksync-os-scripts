@@ -24,7 +24,7 @@ jobs:
       WORKSPACE: ${{ github.workspace }}/workspace
       ZKSYNC_OS_EXECUTION_VERSION: 5
       PROVING_VERSION: 6
-      PROTOCOL_VERSION: 'v30.2'
+      PROTOCOL_VERSION: 'v31.0'
     steps:
 
       - name: Checkout repo
