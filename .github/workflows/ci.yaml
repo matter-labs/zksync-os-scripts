@@ -1,0 +1,106 @@
+name: Check scripts
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup runner
+        uses: ./.github/actions/runner-setup
+
+      - name: Check formatting
+        run: uv format --check
+
+  check-scripts:
+    runs-on: matterlabs-ci-runner-high-performance
+    env:
+      # To avoid uv warning about cache
+      UV_LINK_MODE: copy
+      ZKSYNC_OS_TEST_TAG: v0.2.5
+      WORKSPACE: ${{ github.workspace }}/workspace
+      ZKSYNC_OS_EXECUTION_VERSION: 5
+      PROVING_VERSION: 6
+      PROTOCOL_VERSION: 'v31.0'
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup runner
+        uses: ./.github/actions/runner-setup
+
+      - name: Checkout dependencies
+        uses: ./.github/actions/checkout-deps
+
+      - name: Update contracts in zksync-era
+        run: |
+          rm -rf ${WORKSPACE}/zksync-era/contracts
+          ln -s ${WORKSPACE}/era-contracts ${WORKSPACE}/zksync-era/contracts
+
+
+      # TODO: long time step, enable when needed later
+      # - name: Update wrapper
+      #   run: |
+      #     REPO_DIR=${PWD}/workspace/zkos-wrapper \
+      #     WORKSPACE=${PWD}/workspace \
+      #     ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
+      #     uv run -m scripts.update_wrapper
+
+      - name: Update vk
+        run: |
+          REPO_DIR=${WORKSPACE}/era-contracts \
+          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
+          ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
+            uv run -m scripts.update_vk
+          (
+            cd ${WORKSPACE}/era-contracts
+            git status
+            git diff
+          )
+
+      # TODO: enable when v31 stabilizes
+      # - name: Update server
+      #   run: |
+      #     REPO_DIR=${WORKSPACE}/zksync-os-server \
+      #     ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
+      #     ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
+      #     ZKSYNC_OS_EXECUTION_VERSION=${ZKSYNC_OS_EXECUTION_VERSION} \
+      #     PROVING_VERSION=${PROVING_VERSION} \
+      #     PROTOCOL_VERSION=${PROTOCOL_VERSION} \
+      #       uv run -m scripts.update_server
+      #     (
+      #       cd ${WORKSPACE}/zksync-os-server
+      #       git status
+      #       git diff
+      #     )
+
+
+  # Special job that allows some of the jobs to be skipped or failed
+  # requiring others to be successful
+  pr-checks:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - format
+      - check-scripts
+    steps:
+      - name: Decide on PR checks
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}

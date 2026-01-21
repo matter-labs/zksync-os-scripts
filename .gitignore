@@ -1,0 +1,12 @@
+.idea/
+/target
+env/
+repos/
+.protoctl/
+.venv/
+**/__pycache__/
+.tmp/
+.workspace/
+.protoctl-*/
+node_modules/
+interop-relayer/interop_state.json
