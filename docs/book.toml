@@ -10,7 +10,7 @@ smart-punctuation = true
 git-repository-url = "https://github.com/matter-labs/zksync-os-scripts/tree/main/docs"
 edit-url-template = "https://github.com/matter-labs/zksync-os-scripts/tree/main/docs/{path}"
 additional-js = ["js/version-box.js", "js/mermaid-init.js"]
-additional-css = ["css/version-box.css", "./css/mdbook-admonish.css", "./mdbook-admonish.css"]
+additional-css = ["css/version-box.css", "./css/mdbook-admonish.css"]
 
 [output.html.playground]
 editable = true
