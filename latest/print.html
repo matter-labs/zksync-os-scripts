@@ -1,0 +1,1027 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ZKsync OS Scripts</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="css/version-box.css">
+        <link rel="stylesheet" href="./css/mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync OS Scripts</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/matter-labs/zksync-os-scripts/tree/main/docs" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="zksync-os-scripts"><a class="header" href="#zksync-os-scripts">ZKsync OS Scripts</a></h1>
+<p>Operational scripts for ZKsync OS protocol upgrades.</p>
+<p>This repository contains a collection of Python utilities used to safely and reproducibly perform ZKsync OS upgrades, including:</p>
+<ul>
+<li><a href="./scripts/update_vk.html">Updating verification keys for the contracts</a></li>
+<li><a href="./scripts/update_server.html">Updating genesis and L1 state for the ZKsync OS server</a></li>
+<li><a href="./scripts/update_prover.html">Updating prover configurations with new ZKsync OS version</a></li>
+<li><a href="./scripts/update_wrapper.html">Updating ZKsync OS wrapper with the new ZKsync OS version</a></li>
+</ul>
+<p>The scripts are written in shell-like style, and are designed to be explicit, easy to contribute, and automation-friendly.</p>
+<div id="admonition-tip" class="admonition admonish-tip" role="note" aria-labelledby="admonition-tip-title">
+<div class="admonition-title">
+<div id="admonition-tip-title">
+<p>Tip</p>
+</div>
+<a class="admonition-anchor-link" href="index.html#admonition-tip"></a>
+</div>
+<div>
+<p>If you would like to use automation to do the job for you, jump directly to the <a href="./github-actions.html">GitHub Actions guide</a>.</p>
+<p>If you need a local setup, please proceed to the <a href="./prerequisites.html">Prerequisites</a> document to install all necessary dependencies.</p>
+</div>
+</div>
+<hr />
+<h2 id="why-python"><a class="header" href="#why-python">Why Python?</a></h2>
+<p>Python provides a good balance between readability, ease of use, and powerful libraries for scripting and automation.
+It allows us to write clear and maintainable code that can be easily understood by team members.</p>
+<p>Shell scripts can become complex and hard to manage as the project grows, while Python offers better structure and error handling.</p>
+<p>In addition, Python does not require third-party dependencies for most common tasks,
+making it easier to set up and run the scripts in various environments.</p>
+<h2 id="why-not-rust"><a class="header" href="#why-not-rust">Why not Rust?</a></h2>
+<p>While Rust is a powerful language and widely used across Matter Labs, it has a longer development time for scripting tasks compared to Python.
+Python’s dynamic typing and extensive standard library make it more suitable for quick prototyping and iterative development without compilation.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h1>
+<p>For running the scripts, you will need the following tools installed on your system.</p>
+<h2 id="system-requirements"><a class="header" href="#system-requirements">System requirements</a></h2>
+<ul>
+<li>Operating System: Unix-like (Linux, macOS).</li>
+<li>Disk Space: At least 10 GB of free disk space to accommodate the repositories, dependencies, and generated files.</li>
+<li>Memory: Minimum 32 GB of RAM for smooth operation.</li>
+<li>CPU: modern multi-core processor to handle the computational tasks efficiently.</li>
+</ul>
+<h2 id="required-tools"><a class="header" href="#required-tools">Required tools</a></h2>
+<ul>
+<li>
+<p><strong>uv</strong> - Python dependency and environment manager<br>
+👉 <a href="https://docs.astral.sh/uv/getting-started/installation/">Installation guide</a></p>
+</li>
+<li>
+<p><strong>Node.js ≥ v22.x</strong> - JavaScript runtime for building contracts<br>
+👉 <a href="https://docs.npmjs.com/downloading-and-installing-node-js-and-npm">Installation guide (Node + npm)</a></p>
+</li>
+<li>
+<p><strong>yarn ≥ 1.22</strong> - Package manager used by the contracts workspace<br>
+👉 <a href="https://yarnpkg.com/getting-started/install">Installation guide</a></p>
+</li>
+<li>
+<p><strong>Rust and Cargo</strong> - Required for building tools and ZKsync OS components<br>
+👉 <a href="https://www.rust-lang.org/tools/install">Installation guide</a></p>
+</li>
+<li>
+<p><strong>Foundry == 1.5.1</strong> - Anvil<br>
+👉 <a href="https://book.getfoundry.sh/getting-started/installation">Installation guide</a><br>
+<code>foundryup -i 1.5.1</code></p>
+</li>
+</ul>
+<h3 id="for-protocol-version-v302"><a class="header" href="#for-protocol-version-v302">For protocol version v30.2</a></h3>
+<ul>
+<li><strong>Foundry-zksync == nightly-ae913af65381734ad46c044a9495b67310bc77c4</strong><br>
+👉 <a href="https://github.com/matter-labs/foundry-zksync/releases/tag/nightly-ae913af65381734ad46c044a9495b67310bc77c4">Download binaries from GitHub release</a></li>
+</ul>
+<h3 id="for-protocol-version-v310"><a class="header" href="#for-protocol-version-v310">For protocol version v31.0</a></h3>
+<ul>
+<li><strong>Foundry-zksync == 1.3.5-foundry-zksync-v0.1.5</strong><br>
+👉 <a href="https://foundry-book.zksync.io/">Installation guide</a><br>
+<code>foundryup-zksync -i 0.1.5</code></li>
+</ul>
+<h2 id="quick-install-recommended"><a class="header" href="#quick-install-recommended">Quick install (recommended)</a></h2>
+<p>If you don’t already have the required tools installed, the following commands will get you started on most Unix-like systems (macOS, Linux):</p>
+<pre><code class="language-bash"># Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install Node.js via nvm (recommended)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+nvm install 22
+
+# Install yarn
+npm install -g yarn
+
+# Install Rust (rustup)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup -i 1.5.1
+
+# (FOR v30.2 ONLY): download foundry-zksync binaries (macOS ARM64 example, adjust for your OS/arch)
+ZKSYNC_FOUNDRY_URL="https://github.com/matter-labs/foundry-zksync/releases/download"
+ZKSYNC_FOUNDRY_VERSION="nightly-ae913af65381734ad46c044a9495b67310bc77c4"
+curl -L ${ZKSYNC_FOUNDRY_URL}/${ZKSYNC_FOUNDRY_VERSION}/foundry_nightly_darwin_arm64.tar.gz | tar xz -C ${HOME}/.foundry/bin
+
+# (FOR v31.0 ONLY): install foundry-zksync through foundryup-zksync
+curl -L https://raw.githubusercontent.com/matter-labs/foundry-zksync/main/install-foundry-zksync | bash
+foundryup-zksync -i 0.1.5
+</code></pre>
+<h2 id="init-python-environment"><a class="header" href="#init-python-environment">Init Python environment</a></h2>
+<p>The project uses <a href="https://docs.astral.sh/uv/"><code>uv</code></a> to manage Python versions and dependencies.</p>
+<div id="admonition-initialize-python-environment" class="admonition admonish-example" role="note" aria-labelledby="admonition-initialize-python-environment-title">
+<div class="admonition-title">
+<div id="admonition-initialize-python-environment-title">
+<p>Initialize python environment</p>
+</div>
+<a class="admonition-anchor-link" href="prerequisites.html#admonition-initialize-python-environment"></a>
+</div>
+<div>
+<pre><code class="language-bash"># Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install the required Python version
+uv python install
+
+# Sync dependencies
+uv sync
+</code></pre>
+</div>
+</div>
+<h2 id="verify-installation"><a class="header" href="#verify-installation">Verify installation</a></h2>
+<p>You can verify that all required tools are installed correctly:</p>
+<pre><code class="language-bash">uv --version
+node --version
+yarn --version
+cargo --version
+cast --version
+forge --version
+anvil --version
+</code></pre>
+<p>The output should look similar to this (example for protocol version <code>v31.0</code>):</p>
+<pre><code class="language-bash"># uv version
+uv 0.9.25 (38fcac0f3 2026-01-13)
+# node version
+v22.20.0
+# yarn version
+1.22.22
+# rust and cargo versions
+cargo 1.89.0 (c24e10642 2025-06-23)
+# cast and forge versions
+cast Version: 1.3.5-foundry-zksync-v0.1.5
+forge Version: 1.3.5-foundry-zksync-v0.1.5
+# anvil version
+anvil Version: 1.5.1-v1.5.1
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="protocol-compatibility"><a class="header" href="#protocol-compatibility">Protocol compatibility</a></h1>
+<p>This page is the source of truth for the compatibility guarantees provided by ZKsync OS scripts across different protocol versions.</p>
+<div id="admonition-using-proper-versions" class="admonition admonish-warning" role="note" aria-labelledby="admonition-using-proper-versions-title">
+<div class="admonition-title">
+<div id="admonition-using-proper-versions-title">
+<p>Using proper versions</p>
+</div>
+<a class="admonition-anchor-link" href="protocol-compatibility.html#admonition-using-proper-versions"></a>
+</div>
+<div>
+<p>When using the scripts, ensure that you check out the appropriate branches of the repositories as per the protocol version you are targeting.</p>
+</div>
+</div>
+<h2 id="compatibility-between-server-contracts-and-zkstack-cli"><a class="header" href="#compatibility-between-server-contracts-and-zkstack-cli">Compatibility between server, contracts, and zkstack CLI</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: center">protocol</th><th>server</th><th>era-contracts</th><th>zksync-era (zkstack_cli)</th></tr></thead><tbody>
+<tr><td style="text-align: center"><strong>v30.2</strong></td><td><code>main</code></td><td><code>zksync-os-stable</code></td><td><code>zkstack-for-zksync-os</code></td></tr>
+<tr><td style="text-align: center"><strong>v31.0</strong></td><td><code>main</code></td><td><code>draft-v31-with-zksync-os</code></td><td><code>draft-v31</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="compatibility-for-foundry-versions"><a class="header" href="#compatibility-for-foundry-versions">Compatibility for foundry versions</a></h2>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: center">protocol</th><th>foundry-zksync</th><th>anvil version</th></tr></thead><tbody>
+<tr><td style="text-align: center"><strong>v30.2</strong></td><td><code>nightly-ae913af65381734ad46c044a9495b67310bc77c4</code></td><td><code>1.5.1</code></td></tr>
+<tr><td style="text-align: center"><strong>v31.0</strong></td><td><code>1.3.5-foundry-zksync-v0.1.5</code></td><td><code>1.5.1</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="environment-variables"><a class="header" href="#environment-variables">Environment variables</a></h1>
+<p>All scripts are configured via environment variables. This allows the same scripts to run
+locally, in CI, or against different repositories without code changes and not overloading scripts with command-line arguments.</p>
+<div id="admonition-setting-environment-variables" class="admonition admonish-tip" role="note" aria-labelledby="admonition-setting-environment-variables-title">
+<div class="admonition-title">
+<div id="admonition-setting-environment-variables-title">
+<p>Setting environment variables</p>
+</div>
+<a class="admonition-anchor-link" href="env-variables.html#admonition-setting-environment-variables"></a>
+</div>
+<div>
+<p>Environment variables fall into three categories:</p>
+<ol>
+<li>
+<p><strong>Common environment variables</strong><br>
+Used by all scripts to control general behavior such as logging and workspace layout.</p>
+</li>
+<li>
+<p><strong>Script-specific environment variables</strong><br>
+Used only by a particular script to customize its behavior.</p>
+</li>
+<li>
+<p><strong>Path environment variables</strong><br>
+Used to point scripts to required checked-out repositories.</p>
+</li>
+</ol>
+</div>
+</div>
+<h2 id="common-environment-variables"><a class="header" href="#common-environment-variables">Common environment variables</a></h2>
+<p>These variables are supported by all scripts unless stated otherwise.</p>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Required</th><th>Description</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>REPO_DIR</code></td><td>✅ Yes</td><td>Path to the repository that will be modified by the script.</td><td>—</td></tr>
+<tr><td><code>WORKSPACE</code></td><td>❌ No</td><td>Temporary working directory for intermediate files.</td><td><code>.workspace</code></td></tr>
+<tr><td><code>VERBOSE</code></td><td>❌ No</td><td>Enable verbose logging and subcommands output (<code>1</code> or <code>true</code>).</td><td><code>false</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="script-specific-variables"><a class="header" href="#script-specific-variables">Script-specific variables</a></h2>
+<p>Some scripts require additional environment variables. For example:</p>
+<ul>
+<li><code>PROTOCOL_VERSION</code> — used by server update scripts</li>
+<li><code>ZKSYNC_OS_TAG</code> — used when selecting a specific ZKsync OS tag for updates</li>
+</ul>
+<h2 id="example"><a class="header" href="#example">Example</a></h2>
+<p>The following example shows how to run a script with all required environment variables
+defined inline:</p>
+<div id="admonition-example-usage" class="admonition admonish-example" role="note" aria-labelledby="admonition-example-usage-title">
+<div class="admonition-title">
+<div id="admonition-example-usage-title">
+<p>Example usage</p>
+</div>
+<a class="admonition-anchor-link" href="env-variables.html#admonition-example-usage"></a>
+</div>
+<div>
+<pre><code class="language-bash">WORKSPACE="${PWD}/.custom_workspace" \      # Optional: specify custom workspace path
+VERBOSE=true \                              # Optional: enable verbose logging
+REPO_DIR="/path/to/era-contracts" \         # Required: path to repo for updating
+ZKOS_WRAPPER_PATH="/path/to/zkos-wrapper" \ # Required: script-specific path
+ZKSYNC_OS_TAG=latest \                      # Required: script-specific variable
+    uv run -m scripts.update_vk
+</code></pre>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="running-in-github-actions"><a class="header" href="#running-in-github-actions">Running in GitHub Actions</a></h1>
+<p>Use this guide if you want to run the scripts via <strong>GitHub Actions CI</strong> instead of executing them locally.</p>
+<p>Manual GitHub Actions workflows are available for the following scripts:</p>
+<ul>
+<li><a href="./scripts/update_vk.html">Update era-contracts: verification key generation</a></li>
+<li><a href="./scripts/update_server.html">Update server: genesis and l1 state</a></li>
+</ul>
+<div id="admonition-warning" class="admonition admonish-warning" role="note" aria-labelledby="admonition-warning-title">
+<div class="admonition-title">
+<div id="admonition-warning-title">
+<p>Warning</p>
+</div>
+<a class="admonition-anchor-link" href="github-actions.html#admonition-warning"></a>
+</div>
+<div>
+<p>This documentation assumes you have permission to run workflows in Matter Labs repositories.</p>
+</div>
+</div>
+<h2 id="how-to-run-the-workflows"><a class="header" href="#how-to-run-the-workflows">How to run the workflows</a></h2>
+<ol>
+<li>Open <a href="https://github.com/matter-labs/zksync-os-scripts/actions">the workflow page</a></li>
+<li>Choose the desired workflow from the left sidebar</li>
+<li>Click <strong>Run workflow</strong> on the upper right side</li>
+<li>Fill in the input parameters</li>
+<li>Click <strong>Run workflow</strong> on the bottom to start the job</li>
+</ol>
+<h2 id="available-workflows"><a class="header" href="#available-workflows">Available workflows</a></h2>
+<p>Please, jump to the corresponding script section for more details on each workflow:</p>
+<ul>
+<li><a href="./scripts/update_vk.html#github-actions">Update era-contracts: verification key generation</a></li>
+<li><a href="./scripts/update_server.html#github-actions">Update server: genesis and l1 state</a></li>
+</ul>
+<h2 id="outputs-and-artifacts"><a class="header" href="#outputs-and-artifacts">Outputs and artifacts</a></h2>
+<p>On <strong>successful runs</strong>, the workflow uploads, for example:</p>
+<ul>
+<li><code>server_&lt;protocol_version&gt;.patch</code></li>
+<li><code>contracts_&lt;protocol_version&gt;.patch</code></li>
+</ul>
+<p>On <strong>failed runs</strong>, the workflow uploads:</p>
+<ul>
+<li>Logs from the workspace <code>.logs</code> directory</li>
+</ul>
+<div id="admonition-tip" class="admonition admonish-tip" role="note" aria-labelledby="admonition-tip-title">
+<div class="admonition-title">
+<div id="admonition-tip-title">
+<p>Tip</p>
+</div>
+<a class="admonition-anchor-link" href="github-actions.html#admonition-tip"></a>
+</div>
+<div>
+<p>Artifacts can be downloaded directly from the workflow run page in GitHub Actions.</p>
+</div>
+</div>
+<h2 id="commit-and-pr-behavior"><a class="header" href="#commit-and-pr-behavior">Commit and PR behavior</a></h2>
+<ul>
+<li><code>commit_changes = false</code>
+<ul>
+<li>No commit is created</li>
+<li>A <code>.patch</code> file is uploaded as an artifact</li>
+</ul>
+</li>
+<li><code>commit_changes = true</code> and <code>open_pr = false</code>
+<ul>
+<li>Changes are pushed directly to the selected base branch</li>
+</ul>
+</li>
+<li><code>commit_changes = true</code> and <code>open_pr = true</code>
+<ul>
+<li>A temporary branch is created</li>
+<li>A PR is opened automatically</li>
+</ul>
+</li>
+</ul>
+<h2 id="when-to-use-ci-vs-local-execution"><a class="header" href="#when-to-use-ci-vs-local-execution">When to use CI vs local execution</a></h2>
+<div id="admonition-tip-1" class="admonition admonish-tip" role="note" aria-labelledby="admonition-tip-1-title">
+<div class="admonition-title">
+<div id="admonition-tip-1-title">
+<p>Tip</p>
+</div>
+<a class="admonition-anchor-link" href="github-actions.html#admonition-tip-1"></a>
+</div>
+<div>
+<p>Choosing the right execution mode saves time.</p>
+</div>
+</div>
+<p>Use <strong>GitHub Actions</strong> when:</p>
+<ul>
+<li>You want reproducible and reliable updates</li>
+<li>You want consistent environment and tooling versions</li>
+</ul>
+<p>Use <strong>local scripts</strong> when:</p>
+<ul>
+<li>Debugging or developing scripts</li>
+<li>Iterating on update logic</li>
+<li>Testing experimental changes</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="scripts"><a class="header" href="#scripts">Scripts</a></h1>
+<p>Operational scripts for ZKsync OS protocol upgrades:</p>
+<ul>
+<li><a href="scripts/./update_vk.html">Update era-contracts: verification key generation</a></li>
+<li><a href="scripts/./update_server.html">Update server: genesis and l1 state</a></li>
+<li><a href="scripts/./update_wrapper.html">Update zkos-wrapper: prepare for verification key generation</a></li>
+<li><a href="scripts/./update_prover.html">Update prover: prepare for the protocol upgrade</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="update-verification-keys"><a class="header" href="#update-verification-keys">Update verification keys</a></h1>
+<p>Updates <a href="https://github.com/matter-labs/era-contracts">era-contracts</a>
+repository with new set of verification keys generated
+from the latest ZKsync OS binary and trusted setup.</p>
+<div id="admonition-script-path" class="admonition admonish-note" role="note" aria-labelledby="admonition-script-path-title">
+<div class="admonition-title">
+<div id="admonition-script-path-title">
+<p>Script path</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-script-path"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_vk.py">https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_vk.py</a></p>
+</div>
+</div>
+<p>Use this script when you need to update verification keys for your contracts after a new ZKsync OS or contracts release.</p>
+<p>Usually, the script is used by the protocol upgrade operator or automation to perform the protocol upgrade.</p>
+<p>Script performs the following steps:</p>
+<ul>
+<li>Downloads the trusted setup (CRS) file</li>
+<li>Downloads the updated ZKsync OS binary for a specified release tag</li>
+<li>Generates a new SNARK verification key using the trusted setup and ZKsync OS binary</li>
+<li>Regenerates verifier smart contracts</li>
+<li>Produces updated Solidity verifier contracts for ZKsync OS</li>
+<li>Recomputes contracts hashes affected by the verifier changes</li>
+</ul>
+<p>The script updates the following files in the <a href="https://github.com/matter-labs/era-contracts">era-contracts</a> repository:</p>
+<ul>
+<li><code>l1-contracts/contracts/state-transition/verifiers/ZKsyncOSVerifierPlonk.sol</code> - Plonk verifier contract</li>
+<li><code>tools/verifier-gen/data/ZKsyncOS_plonk_scheduler_key.json</code> - Plonk verifier key data</li>
+<li><code>AllContractsHashes.json</code> - recomputed contract hashes</li>
+</ul>
+<p><a href="https://github.com/matter-labs/era-contracts/commit/9ddc915c85d1f44c79b5d55e160d384138ed5105">Here is an example of a successful commit</a> for the reference.</p>
+<div id="admonition-note" class="admonition admonish-note" role="note" aria-labelledby="admonition-note-title">
+<div class="admonition-title">
+<div id="admonition-note-title">
+<p>Note</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-note"></a>
+</div>
+<div>
+<p>Commit example here is just for the reference.</p>
+<p>The script itself does not perform any git operations (commit/push/PR creation).
+It is expected that the caller (manual operator or automation) will handle
+these operations after the script successfully completes.</p>
+</div>
+</div>
+<hr />
+<h2 id="local-use"><a class="header" href="#local-use">Local use</a></h2>
+<div id="admonition-example-usage" class="admonition admonish-example" role="note" aria-labelledby="admonition-example-usage-title">
+<div class="admonition-title">
+<div id="admonition-example-usage-title">
+<p>Example usage</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-example-usage"></a>
+</div>
+<div>
+<pre><code class="language-bash">REPO_DIR="/path/to/era-contracts" \
+ZKOS_WRAPPER_PATH="/path/to/zkos-wrapper" \
+ZKSYNC_OS_TAG=latest \
+    uv run -m scripts.update_vk
+</code></pre>
+</div>
+</div>
+<p>To run the script, you will need:</p>
+<ul>
+<li><a href="scripts/../prerequisites.html">General prerequisites including uv, Rust and NodeJS</a></li>
+<li>Specific release tag of ZKsync OS from <a href="https://github.com/matter-labs/zksync-os/releases"><code>zksync-os</code> releases</a> specified through <code>ZKSYNC_OS_TAG</code> env variable</li>
+</ul>
+<div id="admonition-protocol-version-and-branches" class="admonition admonish-warning" role="note" aria-labelledby="admonition-protocol-version-and-branches-title">
+<div class="admonition-title">
+<div id="admonition-protocol-version-and-branches-title">
+<p>Protocol version and branches</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-protocol-version-and-branches"></a>
+</div>
+<div>
+<p>In addition, the script requires access to the following repositories,
+which should be specified via corresponding path environment variables:</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Repository</th><th style="text-align: left">Env Variable</th><th style="text-align: left">Protocol version → Branch Mapping</th></tr></thead><tbody>
+<tr><td style="text-align: left"><a href="https://github.com/matter-labs/era-contracts">era-contracts</a></td><td style="text-align: left"><code>REPO_DIR</code></td><td style="text-align: left"><strong>v30.2</strong> → <code>zksync-os-stable</code><br /><strong>v31.0</strong> → <code>draft-v31-with-zksync-os</code></td></tr>
+<tr><td style="text-align: left"><a href="https://github.com/matter-labs/zkos-wrapper">zkos-wrapper</a></td><td style="text-align: left"><code>ZKOS_WRAPPER_PATH</code></td><td style="text-align: left"><strong>all versions</strong> → <code>main</code> (latest)</td></tr>
+</tbody></table>
+</div>
+<p>Please, additionally check <a href="scripts/../protocol-compatibility.html">protocol compatibility</a> to ensure the correct versions are used.</p>
+</div>
+</div>
+<hr />
+<h2 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h2>
+<p>The script supports execution via GitHub Actions <a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/.github/workflows/update-vk.yaml"><code>update-vk.yaml</code> workflow</a>
+that can be triggered manually via GitHub Actions UI interface.</p>
+<div id="admonition-workflow-link" class="admonition admonish-note" role="note" aria-labelledby="admonition-workflow-link-title">
+<div class="admonition-title">
+<div id="admonition-workflow-link-title">
+<p>Workflow link</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-workflow-link"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-vk.yaml">https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-vk.yaml</a></p>
+</div>
+</div>
+<h3 id="input-parameters"><a class="header" href="#input-parameters">Input parameters</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Required</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>protocol_version</code></td><td>✅</td><td>Protocol version to update verification keys for.</td></tr>
+<tr><td><code>zksync_os_tag</code></td><td>✅</td><td>Git tag of <code>zksync-os</code> used to generate the keys.</td></tr>
+<tr><td><code>era_contracts_branch</code></td><td>❌</td><td>Explicit <code>era-contracts</code> branch. Defaults to protocol mapping.</td></tr>
+<tr><td><code>zkos_wrapper_version</code></td><td>❌</td><td>Explicit <code>zkos-wrapper</code> version. Defaults to protocol mapping.</td></tr>
+<tr><td><code>commit_changes</code></td><td>❌</td><td>Whether to commit the updated keys. Defaults to <code>true</code>.</td></tr>
+<tr><td><code>open_pr</code></td><td>❌</td><td>Whether to open a PR. Defaults to <code>true</code>.</td></tr>
+</tbody></table>
+</div><p align="center">
+    <img src="scripts/../images/update-vk-workflow.png" alt="Workflow inputs" style="width: 55%;">
+</p>
+<div id="admonition-configuring-the-workflow" class="admonition admonish-tip" role="note" aria-labelledby="admonition-configuring-the-workflow-title">
+<div class="admonition-title">
+<div id="admonition-configuring-the-workflow-title">
+<p>Configuring the workflow</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-configuring-the-workflow"></a>
+</div>
+<div>
+<p>Follow more detailed tutorial in the <a href="scripts/../github-actions.html">GitHub Actions guide</a>.</p>
+</div>
+</div>
+<h3 id="outputs"><a class="header" href="#outputs">Outputs</a></h3>
+<p>On <strong>successful runs</strong>, the workflow uploads <code>contracts_&lt;protocol_version&gt;.patch</code> Git patch file with the changes made to the <code>era-contracts</code> repository.</p>
+<p>If <code>commit_changes</code> and <code>open_pr</code> are set to <code>true</code>, a PR is opened automatically with the changes.</p>
+<div id="admonition-example-pr" class="admonition admonish-note" role="note" aria-labelledby="admonition-example-pr-title">
+<div class="admonition-title">
+<div id="admonition-example-pr-title">
+<p>Example PR</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-example-pr"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/era-contracts/pull/2018">era-contracts/pull/2018</a></p>
+</div>
+</div>
+<p>On <strong>failed runs</strong>, the workflow saves logs from the workspace <code>.logs</code> directory as an artifact.</p>
+<div id="admonition-tip" class="admonition admonish-tip" role="note" aria-labelledby="admonition-tip-title">
+<div class="admonition-title">
+<div id="admonition-tip-title">
+<p>Tip</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-tip"></a>
+</div>
+<div>
+<p>Artifacts can be downloaded directly from the workflow run page in GitHub Actions.</p>
+</div>
+</div>
+<h2 id="script-dependencies"><a class="header" href="#script-dependencies">Script dependencies</a></h2>
+<p>The script relies on the following external resources:</p>
+<ul>
+<li><a href="https://storage.googleapis.com/matterlabs-setup-keys-europe/setup-keys/setup_2^24.key">Trusted setup CRS file <code>setup_2^24.key</code></a></li>
+<li>ZKsync OS <code>multiblock_batch.bin</code> binary from <a href="https://github.com/matter-labs/zksync-os/releases">zksync-os releases</a></li>
+<li><a href="https://github.com/matter-labs/zkos-wrapper/blob/main/docs/end_to_end.md?plain=1#L36">zkos-wrapper part to generate verification keys</a></li>
+<li><a href="https://github.com/matter-labs/era-contracts/tree/zksync-os-stable/tools/verifier-gen">Plonk and Flonk verifier contract generator</a></li>
+<li><a href="https://github.com/matter-labs/era-contracts/blob/zksync-os-stable/recompute_hashes.sh"><code>recompute_hashes.sh</code> script to recompute contract hashes after update</a></li>
+</ul>
+<div id="admonition-script-failure" class="admonition admonish-bug" role="note" aria-labelledby="admonition-script-failure-title">
+<div class="admonition-title">
+<div id="admonition-script-failure-title">
+<p>Script failure</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_vk.html#admonition-script-failure"></a>
+</div>
+<div>
+<p>If the script fails, it means that one of the dependencies is changed or unavailable.
+In this case, the script needs to be updated accordingly.</p>
+<ul>
+<li>CRS checksum mismatch → trusted setup file updated upstream
+<ul>
+<li>To fix: check with DevOps, and update the expected checksum in the script</li>
+</ul>
+</li>
+<li>Contracts regeneration failure → incompatible tooling on the <code>era-contracts</code> branch
+<ul>
+<li>To fix: align new <code>era-contracts</code> tooling updates with the scripts</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="update-server-generate-genesis-and-l1-state"><a class="header" href="#update-server-generate-genesis-and-l1-state">Update server: generate genesis and L1 state</a></h1>
+<p>Updates <a href="https://github.com/matter-labs/zksync-os-server/tree/main/local-chains">zksync-os-server and its local-chains setup</a>
+repository with the new genesis and L1 state.</p>
+<div id="admonition-script-path" class="admonition admonish-note" role="note" aria-labelledby="admonition-script-path-title">
+<div class="admonition-title">
+<div id="admonition-script-path-title">
+<p>Script path</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-script-path"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_server.py">https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_server.py</a></p>
+</div>
+</div>
+<p>Usually, the script is used by the protocol upgrade operator or automation to perform the protocol upgrade.</p>
+<p>It can be used to create or update local test setups for a given protocol version or with a custom version of <a href="https://github.com/matter-labs/era-contracts">era-contracts</a>.</p>
+<p>Script performs the following steps:</p>
+<ul>
+<li>Build zkstack CLI: Compiles the zkstack command used to create/init ecosystems and chains.</li>
+<li>Build L1 contracts.</li>
+<li>Generate <code>genesis.json</code>.</li>
+<li>Fund necessary rich wallets.</li>
+<li>Deploy required L1 contracts.</li>
+<li>Update local-chains configurations, copies required chains and wallets files.</li>
+<li>Generate L1 -&gt; L2 deposit tx for rich wallets.</li>
+<li>Updates verification key hash.</li>
+<li>Regenerate <code>contracts.json</code> used by the L1 watcher.</li>
+</ul>
+<p>The script updates the following files in the <a href="https://github.com/matter-labs/zksync-os-server">zksync-os-server</a> repository:</p>
+<ul>
+<li><code>local-chains/&lt;protocol_version&gt;/**/*</code> - local chain configuration for chosen protocol version</li>
+<li><code>lib/l1_watcher/src/factory_deps/contracts.json</code> - L1 contracts configuration used by the L1 watcher</li>
+<li><code>lib/types/src/protocol/proving_version.rs</code> - new verification key hash (if it changed, otherwise it is not updated)</li>
+</ul>
+<hr />
+<h2 id="local-use-1"><a class="header" href="#local-use-1">Local use</a></h2>
+<div id="admonition-example-usage" class="admonition admonish-example" role="note" aria-labelledby="admonition-example-usage-title">
+<div class="admonition-title">
+<div id="admonition-example-usage-title">
+<p>Example usage</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-example-usage"></a>
+</div>
+<div>
+<pre><code class="language-bash">REPO_DIR="/path/to/zksync-os-server" \
+ERA_CONTRACTS_PATH="/path/to/era-contracts" \
+ZKSYNC_ERA_PATH="/path/to/zksync-era" \
+PROTOCOL_VERSION=&lt;protocol_version&gt; \
+    uv run -m scripts.update_server
+</code></pre>
+</div>
+</div>
+<div id="admonition-careful" class="admonition admonish-warning" role="note" aria-labelledby="admonition-careful-title">
+<div class="admonition-title">
+<div id="admonition-careful-title">
+<p>Careful</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-careful"></a>
+</div>
+<div>
+<p>Before running this script, ensure that anvil is not running on 8545 port.</p>
+</div>
+</div>
+<p>To run the script, you will need:</p>
+<ul>
+<li><a href="scripts/../prerequisites.html">General prerequisites including uv, Rust and NodeJS</a></li>
+<li>Specific protocol version specified through <code>PROTOCOL_VERSION</code> env variable
+<ul>
+<li>Available protocol versions are defined in the <a href="https://github.com/matter-labs/zksync-os-server/tree/main/local-chains">local-chains</a> directory of the <code>zksync-os-server</code> repository as subdirectories.
+For example, <code>v30.2</code> or <code>v31.0</code>.</li>
+</ul>
+</li>
+</ul>
+<div id="admonition-protocol-version-and-branches" class="admonition admonish-warning" role="note" aria-labelledby="admonition-protocol-version-and-branches-title">
+<div class="admonition-title">
+<div id="admonition-protocol-version-and-branches-title">
+<p>Protocol version and branches</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-protocol-version-and-branches"></a>
+</div>
+<div>
+<p>In addition, the script requires access to the following repositories,
+which should be specified via corresponding path environment variables:</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Repository</th><th style="text-align: left">Env Variable</th><th style="text-align: left">Protocol version → Branch Mapping</th></tr></thead><tbody>
+<tr><td style="text-align: left"><a href="https://github.com/matter-labs/zksync-os-server">zksync-os-server</a></td><td style="text-align: left"><code>REPO_DIR</code></td><td style="text-align: left"><strong>all versions</strong> → <code>main</code></td></tr>
+<tr><td style="text-align: left"><a href="https://github.com/matter-labs/era-contracts">era-contracts</a></td><td style="text-align: left"><code>ERA_CONTRACTS_PATH</code></td><td style="text-align: left"><strong>v30.2</strong> → <code>zksync-os-stable</code><br /><strong>v31.0</strong> → <code>draft-v31-with-zksync-os</code></td></tr>
+<tr><td style="text-align: left"><a href="https://github.com/matter-labs/zksync-era">zksync-era</a></td><td style="text-align: left"><code>ZKSYNC_ERA_PATH</code></td><td style="text-align: left"><strong>v30.2</strong> → <code>zkstack-for-zksync-os</code><br /><strong>v31.0</strong> → <code>draft-v31</code></td></tr>
+</tbody></table>
+</div>
+<p>Also, make sure you have the right tooling versions:</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: center">protocol</th><th>foundry-zksync</th><th>anvil version</th></tr></thead><tbody>
+<tr><td style="text-align: center"><strong>v30.2</strong></td><td><code>nightly-ae913af65381734ad46c044a9495b67310bc77c4</code></td><td><code>1.5.1</code></td></tr>
+<tr><td style="text-align: center"><strong>v31.0</strong></td><td><code>1.3.5-foundry-zksync-v0.1.5</code></td><td><code>1.5.1</code></td></tr>
+</tbody></table>
+</div>
+<p>Detailed instructions on how to install the required tooling can be found in the <a href="scripts/../prerequisites.html">prerequisites</a> guide.</p>
+<p>Please, additionally check <a href="scripts/../protocol-compatibility.html">protocol compatibility</a> to ensure the correct versions are used.</p>
+</div>
+</div>
+<hr />
+<h2 id="github-actions-1"><a class="header" href="#github-actions-1">GitHub Actions</a></h2>
+<p>The script supports execution via GitHub Actions <a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/.github/workflows/update-server.yaml"><code>update-server.yaml</code> workflow</a>
+that can be triggered manually via GitHub Actions UI interface.</p>
+<div id="admonition-workflow-link" class="admonition admonish-note" role="note" aria-labelledby="admonition-workflow-link-title">
+<div class="admonition-title">
+<div id="admonition-workflow-link-title">
+<p>Workflow link</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-workflow-link"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-server.yaml">https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-server.yaml</a></p>
+</div>
+</div>
+<h3 id="input-parameters-1"><a class="header" href="#input-parameters-1">Input parameters</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Required</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>protocol_version</code></td><td>✅</td><td>Protocol version to update. Determines default dependency mappings.</td></tr>
+<tr><td><code>zksync_server_branch</code></td><td>✅</td><td>Base branch of <code>zksync-os-server</code> used for the update.</td></tr>
+<tr><td><code>zksync_era_version</code></td><td>❌</td><td>Explicit <code>zksync-era</code> version. If empty, derived from <code>protocol_version</code>.</td></tr>
+<tr><td><code>era_contracts_version</code></td><td>❌</td><td>Explicit <code>era-contracts</code> version. If empty, derived from <code>protocol_version</code>.</td></tr>
+<tr><td><code>commit_changes</code></td><td>❌</td><td>Whether to commit changes back to the repository. Defaults to <code>true</code>.</td></tr>
+<tr><td><code>open_pr</code></td><td>❌</td><td>Whether to open a PR for the committed changes. Defaults to <code>true</code>.</td></tr>
+</tbody></table>
+</div><p align="center">
+    <img src="scripts/../images/update-server-workflow.png" alt="Workflow inputs" style="width: 55%;">
+</p>
+<div id="admonition-configuring-the-workflow" class="admonition admonish-tip" role="note" aria-labelledby="admonition-configuring-the-workflow-title">
+<div class="admonition-title">
+<div id="admonition-configuring-the-workflow-title">
+<p>Configuring the workflow</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-configuring-the-workflow"></a>
+</div>
+<div>
+<p>Follow more detailed tutorial in the <a href="scripts/../github-actions.html">GitHub Actions guide</a>.</p>
+</div>
+</div>
+<h3 id="outputs-1"><a class="header" href="#outputs-1">Outputs</a></h3>
+<p>On <strong>successful runs</strong>, the workflow uploads <code>server_&lt;protocol_version&gt;.patch</code> Git patch file with the changes made to the <code>zksync-os-server</code> repository.</p>
+<p>If <code>commit_changes</code> and <code>open_pr</code> are set to <code>true</code>, a PR is opened automatically with the changes.</p>
+<div id="admonition-example-pr" class="admonition admonish-note" role="note" aria-labelledby="admonition-example-pr-title">
+<div class="admonition-title">
+<div id="admonition-example-pr-title">
+<p>Example PR</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-example-pr"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-server/pull/856">zksync-os-server/pull/856</a></p>
+</div>
+</div>
+<p>On <strong>failed runs</strong>, the workflow saves logs from the workspace <code>.logs</code> directory as an artifact.</p>
+<div id="admonition-tip" class="admonition admonish-tip" role="note" aria-labelledby="admonition-tip-title">
+<div class="admonition-title">
+<div id="admonition-tip-title">
+<p>Tip</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-tip"></a>
+</div>
+<div>
+<p>Artifacts can be downloaded directly from the workflow run page in GitHub Actions.</p>
+</div>
+</div>
+<h2 id="script-dependencies-1"><a class="header" href="#script-dependencies-1">Script dependencies</a></h2>
+<p>The script relies on the following external resources:</p>
+<ul>
+<li><a href="https://github.com/matter-labs/zksync-era/tree/zkstack-for-zksync-os/zkstack_cli">zkstack_cli to init ecosystem and chains</a></li>
+<li><a href="https://github.com/matter-labs/era-contracts/tree/zksync-os-stable/tools/zksync-os-genesis-gen">ZKsync OS genesis gen tool</a></li>
+<li><a href="https://github.com/matter-labs/zksync-os-server/tree/main/tools/generate-deposit">L1 -&gt; L2 deposit tool</a></li>
+</ul>
+<div id="admonition-script-failure" class="admonition admonish-bug" role="note" aria-labelledby="admonition-script-failure-title">
+<div class="admonition-title">
+<div id="admonition-script-failure-title">
+<p>Script failure</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_server.html#admonition-script-failure"></a>
+</div>
+<div>
+<p>If the script fails, it means that one of the dependencies is changed or unavailable.
+In this case, the script needs to be updated accordingly.</p>
+<ul>
+<li>Wrong tooling versions → incompatible with the contracts and scripts
+<ul>
+<li>To fix: check the required versions in the <code>protocol version and branches</code> table above and in the <a href="scripts/../protocol-compatibility.html">protocol compatibility</a> guide, and install the correct versions</li>
+</ul>
+</li>
+<li>Unable to start anvil → anvil is already running on 8545 port
+<ul>
+<li>To fix: stop another anvil instances you already have or change the port it runs on</li>
+</ul>
+</li>
+</ul>
+<p>Any other issue in the operations performed by the script is likely caused by changes in the dependencies,
+and requires checking the steps of the script and updating it accordingly.</p>
+<p>If you notice any such changes are required, please, reach out to the owners or create a PR with the required updates.</p>
+</div>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="update-zksync-os-wrapper"><a class="header" href="#update-zksync-os-wrapper">Update ZKsync OS wrapper</a></h1>
+<p>Updates <a href="https://github.com/matter-labs/zkos-wrapper">zkos-wrapper</a> repository with the new SNARK proof
+to prepare verification key generation on the next step using <a href="scripts/./update_vk.html"><code>update_vk.py</code></a> script.</p>
+<div id="admonition-script-path" class="admonition admonish-note" role="note" aria-labelledby="admonition-script-path-title">
+<div class="admonition-title">
+<div id="admonition-script-path-title">
+<p>Script path</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_wrapper.html#admonition-script-path"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_wrapper.py">https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_wrapper.py</a></p>
+</div>
+</div>
+<hr />
+<h2 id="local-use-2"><a class="header" href="#local-use-2">Local use</a></h2>
+<div id="admonition-example-usage" class="admonition admonish-example" role="note" aria-labelledby="admonition-example-usage-title">
+<div class="admonition-title">
+<div id="admonition-example-usage-title">
+<p>Example usage</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_wrapper.html#admonition-example-usage"></a>
+</div>
+<div>
+<pre><code class="language-bash">REPO_DIR="/path/to/zkos-wrapper" \
+ZKSYNC_AIRBENDER_PATH=/path/to/zksync-airbender \
+    uv run -m scripts.update_wrapper
+</code></pre>
+</div>
+</div>
+<p>To run the script, you will need:</p>
+<ul>
+<li><a href="scripts/../prerequisites.html">General prerequisites including uv, Rust and NodeJS</a></li>
+<li>Access to the <code>zkos-wrapper</code> repository specified through <code>REPO_DIR</code> env variable</li>
+<li>Access to the <code>zksync-airbender</code> repository specified through <code>ZKSYNC_AIRBENDER_PATH</code> env variable</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="update-prover-with-new-zksync-os-binary"><a class="header" href="#update-prover-with-new-zksync-os-binary">Update prover with new ZKsync OS binary</a></h1>
+<p>Updates ZKsync Airbender Prover with a new ZKsync OS binary.</p>
+<div id="admonition-script-path" class="admonition admonish-note" role="note" aria-labelledby="admonition-script-path-title">
+<div class="admonition-title">
+<div id="admonition-script-path-title">
+<p>Script path</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_prover.html#admonition-script-path"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_prover.py">https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_prover.py</a></p>
+</div>
+</div>
+<p>Use this script when you need to update the prover with a new ZKsync OS binary after a new ZKsync OS release.</p>
+<p>Script performs the following steps:</p>
+<ul>
+<li>Replaces ZKsync OS binary used by the prover with a new version corresponding to the specified release tag.</li>
+<li>Updates prover configuration to reference the new binary and its associated parameters.</li>
+</ul>
+<hr />
+<h2 id="local-use-3"><a class="header" href="#local-use-3">Local use</a></h2>
+<div id="admonition-example-usage" class="admonition admonish-example" role="note" aria-labelledby="admonition-example-usage-title">
+<div class="admonition-title">
+<div id="admonition-example-usage-title">
+<p>Example usage</p>
+</div>
+<a class="admonition-anchor-link" href="scripts/update_prover.html#admonition-example-usage"></a>
+</div>
+<div>
+<pre><code class="language-bash">REPO_DIR="/path/to/zksync-airbender-prover" \
+ZKSYNC_OS_TAG=&lt;new_zksync_os_tag&gt; \
+    uv run -m scripts.update_prover
+</code></pre>
+</div>
+</div>
+<p>To run the script, you will need:</p>
+<ul>
+<li><a href="scripts/../prerequisites.html">General prerequisites including uv, Rust and NodeJS</a></li>
+<li>Specific release tag of ZKsync OS from <a href="https://github.com/matter-labs/zksync-os/releases"><code>zksync-os</code> releases</a> specified through <code>ZKSYNC_OS_TAG</code> env variable</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="developer-documentation"><a class="header" href="#developer-documentation">Developer Documentation</a></h1>
+<ul>
+<li><a href="developer/./architecture.html">Scripts architecture</a></li>
+<li><a href="developer/./commands.html">Available shell-like commands</a></li>
+<li><a href="developer/./backwards_compatibility.html">Backwards compatibility</a></li>
+<li><a href="developer/./testing.html">Testing the scripts</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="scripts-architecture"><a class="header" href="#scripts-architecture">Scripts architecture</a></h1>
+<p>TBD</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="commands-and-utilities"><a class="header" href="#commands-and-utilities">Commands and utilities</a></h1>
+<p>TBD</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="backward-compatibility"><a class="header" href="#backward-compatibility">Backward Compatibility</a></h1>
+<p>TBD</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="testing-the-scripts"><a class="header" href="#testing-the-scripts">Testing the scripts</a></h1>
+<p>TBD</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="ace.js"></script>
+        <script src="editor.js"></script>
+        <script src="mode-rust.js"></script>
+        <script src="theme-dawn.js"></script>
+        <script src="theme-tomorrow_night.js"></script>
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="js/version-box.js"></script>
+        <script src="js/mermaid-init.js"></script>
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>
