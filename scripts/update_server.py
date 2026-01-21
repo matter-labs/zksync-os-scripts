@@ -21,6 +21,8 @@ from lib import utils
 from lib import edit_server
 
 
+GATEWAY_CHAIN_ID = "506"
+
 # ---------------------------------------------------------------------------
 # Funding logic
 # ---------------------------------------------------------------------------
@@ -226,6 +228,28 @@ def init_ecosystem(
                     cargo run --release --package zksync_os_generate_deposit -- --bridgehub "{bridgehub_address}" --chain-id {chain}
                     """
                 )
+                if chain == GATEWAY_CHAIN_ID:
+                    ctx.sh(
+                        f"""
+                            {zkstack_bin}
+                            chain gateway create-tx-filterer
+                            --chain {GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="http://localhost:8545"
+                            --ignore-prerequisites
+                            """,
+                        cwd=ecosystem_dir,
+                    )
+                    ctx.sh(
+                        f"""
+                            {zkstack_bin}
+                            chain gateway convert-to-gateway
+                            --chain {GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="http://localhost:8545"
+                            --ignore-prerequisites
+                            --no-gateway-overrides
+                            """,
+                        cwd=ecosystem_dir,
+                    )
 
 
 # ---------------------------------------------------------------------------
@@ -297,7 +321,10 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Multi-chain setup
     # ------------------------------------------------------------------ #
-    init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
+    if protocol_version == "v30.2":
+        init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
+    else:
+        init_ecosystem(ctx, "multi_chain", ["6565", "6566", GATEWAY_CHAIN_ID])
 
     # ------------------------------------------------------------------ #
     # Update VK hash in prover config

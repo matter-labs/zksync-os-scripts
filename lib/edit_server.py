@@ -141,9 +141,9 @@ def update_chain_config_yaml(
     )
 
     mapping = {
-        "blob_operator": "operator_commit_pk",
-        "prove_operator": "operator_prove_pk",
-        "execute_operator": "operator_execute_pk",
+        "blob_operator": "operator_commit_sk",
+        "prove_operator": "operator_prove_sk",
+        "execute_operator": "operator_execute_sk",
     }
 
     wallets = utils.load_yaml(wallets_yaml)
