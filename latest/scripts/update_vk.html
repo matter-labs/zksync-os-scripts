@@ -1,0 +1,477 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Update era-contracts: verification key generation - ZKsync OS Scripts</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../css/version-box.css">
+        <link rel="stylesheet" href=".././css/mdbook-admonish.css">
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">ZKsync OS Scripts</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/matter-labs/zksync-os-scripts/tree/main/docs" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/matter-labs/zksync-os-scripts/tree/main/docs/src/scripts/update_vk.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="update-verification-keys"><a class="header" href="#update-verification-keys">Update verification keys</a></h1>
+<p>Updates <a href="https://github.com/matter-labs/era-contracts">era-contracts</a>
+repository with new set of verification keys generated
+from the latest ZKsync OS binary and trusted setup.</p>
+<div id="admonition-script-path" class="admonition admonish-note" role="note" aria-labelledby="admonition-script-path-title">
+<div class="admonition-title">
+<div id="admonition-script-path-title">
+<p>Script path</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-script-path"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_vk.py">https://github.com/matter-labs/zksync-os-scripts/blob/main/scripts/update_vk.py</a></p>
+</div>
+</div>
+<p>Use this script when you need to update verification keys for your contracts after a new ZKsync OS or contracts release.</p>
+<p>Usually, the script is used by the protocol upgrade operator or automation to perform the protocol upgrade.</p>
+<p>Script performs the following steps:</p>
+<ul>
+<li>Downloads the trusted setup (CRS) file</li>
+<li>Downloads the updated ZKsync OS binary for a specified release tag</li>
+<li>Generates a new SNARK verification key using the trusted setup and ZKsync OS binary</li>
+<li>Regenerates verifier smart contracts</li>
+<li>Produces updated Solidity verifier contracts for ZKsync OS</li>
+<li>Recomputes contracts hashes affected by the verifier changes</li>
+</ul>
+<p>The script updates the following files in the <a href="https://github.com/matter-labs/era-contracts">era-contracts</a> repository:</p>
+<ul>
+<li><code>l1-contracts/contracts/state-transition/verifiers/ZKsyncOSVerifierPlonk.sol</code> - Plonk verifier contract</li>
+<li><code>tools/verifier-gen/data/ZKsyncOS_plonk_scheduler_key.json</code> - Plonk verifier key data</li>
+<li><code>AllContractsHashes.json</code> - recomputed contract hashes</li>
+</ul>
+<p><a href="https://github.com/matter-labs/era-contracts/commit/9ddc915c85d1f44c79b5d55e160d384138ed5105">Here is an example of a successful commit</a> for the reference.</p>
+<div id="admonition-note" class="admonition admonish-note" role="note" aria-labelledby="admonition-note-title">
+<div class="admonition-title">
+<div id="admonition-note-title">
+<p>Note</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-note"></a>
+</div>
+<div>
+<p>Commit example here is just for the reference.</p>
+<p>The script itself does not perform any git operations (commit/push/PR creation).
+It is expected that the caller (manual operator or automation) will handle
+these operations after the script successfully completes.</p>
+</div>
+</div>
+<hr />
+<h2 id="local-use"><a class="header" href="#local-use">Local use</a></h2>
+<div id="admonition-example-usage" class="admonition admonish-example" role="note" aria-labelledby="admonition-example-usage-title">
+<div class="admonition-title">
+<div id="admonition-example-usage-title">
+<p>Example usage</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-example-usage"></a>
+</div>
+<div>
+<pre><code class="language-bash">REPO_DIR="/path/to/era-contracts" \
+ZKOS_WRAPPER_PATH="/path/to/zksync-protocol-private" \
+ZKSYNC_OS_REPOSITORY=matter-labs/zksync-os-private \
+ZKSYNC_OS_TAG=v0.5.5 \
+    uv run -m scripts.update_vk
+</code></pre>
+</div>
+</div>
+<p>To run the script, you will need:</p>
+<ul>
+<li><a href="../prerequisites.html">General prerequisites including uv, Rust and NodeJS</a></li>
+<li>Specific release tag of ZKsync OS from <code>matter-labs/zksync-os-private</code> releases specified through <code>ZKSYNC_OS_TAG</code> env variable</li>
+</ul>
+<div id="admonition-protocol-version-and-branches" class="admonition admonish-warning" role="note" aria-labelledby="admonition-protocol-version-and-branches-title">
+<div class="admonition-title">
+<div id="admonition-protocol-version-and-branches-title">
+<p>Protocol version and branches</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-protocol-version-and-branches"></a>
+</div>
+<div>
+<p>In addition, the script requires access to the following repositories,
+which should be specified via corresponding path environment variables:</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: left">Repository</th><th style="text-align: left">Env Variable</th><th style="text-align: left">Protocol version → Branch Mapping</th></tr></thead><tbody>
+<tr><td style="text-align: left"><a href="https://github.com/matter-labs/era-contracts">era-contracts</a></td><td style="text-align: left"><code>REPO_DIR</code></td><td style="text-align: left">Explicit branch or revision (e.g. <code>v0.33.2</code>)</td></tr>
+<tr><td style="text-align: left"><code>matter-labs/zksync-protocol-private</code></td><td style="text-align: left"><code>ZKOS_WRAPPER_PATH</code></td><td style="text-align: left"><strong>v33.1</strong> → explicit revision; <strong>v33.2</strong> → pinned PR #49 revision</td></tr>
+</tbody></table>
+</div>
+<p>Please, additionally check <a href="../protocol-compatibility.html">protocol compatibility</a> to ensure the correct versions are used.</p>
+</div>
+</div>
+<hr />
+<h2 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h2>
+<p>The script supports execution via GitHub Actions <a href="https://github.com/matter-labs/zksync-os-scripts/blob/main/.github/workflows/update-vk.yaml"><code>update-vk.yaml</code> workflow</a>
+that can be triggered manually via GitHub Actions UI interface.</p>
+<div id="admonition-workflow-link" class="admonition admonish-note" role="note" aria-labelledby="admonition-workflow-link-title">
+<div class="admonition-title">
+<div id="admonition-workflow-link-title">
+<p>Workflow link</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-workflow-link"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-vk.yaml">https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-vk.yaml</a></p>
+</div>
+</div>
+<h3 id="input-parameters"><a class="header" href="#input-parameters">Input parameters</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Required</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>protocol_version</code></td><td>✅</td><td>Protocol version to update verification keys for.</td></tr>
+<tr><td><code>zksync_os_tag</code></td><td>❌</td><td>OS release tag; defaults to the protocol mapping.</td></tr>
+<tr><td><code>zksync_os_repository</code></td><td>❌</td><td>OS release repository (<code>owner/name</code>); defaults to the protocol mapping.</td></tr>
+<tr><td><code>era_contracts_branch</code></td><td>✅</td><td>Contracts branch or revision.</td></tr>
+<tr><td><code>zkos_wrapper_version</code></td><td>v33.1 only</td><td>Wrapper revision matching the prover; v33.2 defaults to <code>f28fbaac166383ef19cabb96ea4c7201a8096cc3</code>.</td></tr>
+<tr><td><code>zkos_wrapper_repository</code></td><td>❌</td><td>Wrapper repository (<code>owner/name</code>); defaults to the protocol mapping.</td></tr>
+<tr><td><code>commit_changes</code></td><td>❌</td><td>Whether to commit the updated keys. Defaults to <code>true</code>.</td></tr>
+<tr><td><code>open_pr</code></td><td>❌</td><td>Whether to open a PR. Defaults to <code>true</code>.</td></tr>
+</tbody></table>
+</div><p align="center">
+    <img src="../images/update-vk-workflow.png" alt="Workflow inputs" style="width: 55%;">
+</p>
+<div id="admonition-configuring-the-workflow" class="admonition admonish-tip" role="note" aria-labelledby="admonition-configuring-the-workflow-title">
+<div class="admonition-title">
+<div id="admonition-configuring-the-workflow-title">
+<p>Configuring the workflow</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-configuring-the-workflow"></a>
+</div>
+<div>
+<p>Follow more detailed tutorial in the <a href="../github-actions.html">GitHub Actions guide</a>.</p>
+</div>
+</div>
+<h3 id="outputs"><a class="header" href="#outputs">Outputs</a></h3>
+<p>On <strong>successful runs</strong>, the workflow uploads an <code>era-contracts-patch-&lt;protocol_version&gt;</code> artifact containing <code>era_contracts_&lt;protocol_version&gt;.patch</code>, with the changes made to the <code>era-contracts</code> repository.
+It also uploads a <code>verification-key-&lt;protocol_version&gt;</code> artifact containing <code>snark_vk_expected.json</code> and <code>vk_hash.txt</code>.
+The hash is extracted from the generated Plonk verifier contract and can be used to configure the server and prover.</p>
+<p>If <code>commit_changes</code> and <code>open_pr</code> are set to <code>true</code>, a PR is opened automatically with the changes.</p>
+<div id="admonition-example-pr" class="admonition admonish-note" role="note" aria-labelledby="admonition-example-pr-title">
+<div class="admonition-title">
+<div id="admonition-example-pr-title">
+<p>Example PR</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-example-pr"></a>
+</div>
+<div>
+<p><a href="https://github.com/matter-labs/era-contracts/pull/2018">era-contracts/pull/2018</a></p>
+</div>
+</div>
+<p>On <strong>failed runs</strong>, the workflow saves logs from the workspace <code>.logs</code> directory as an artifact.</p>
+<div id="admonition-tip" class="admonition admonish-tip" role="note" aria-labelledby="admonition-tip-title">
+<div class="admonition-title">
+<div id="admonition-tip-title">
+<p>Tip</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-tip"></a>
+</div>
+<div>
+<p>Artifacts can be downloaded directly from the workflow run page in GitHub Actions.</p>
+</div>
+</div>
+<h3 id="protocol-v331"><a class="header" href="#protocol-v331">Protocol v33.1</a></h3>
+<p>Select <code>protocol_version=v33.1</code>. The workflow defaults to:</p>
+<div class="table-wrapper"><table><thead><tr><th>Input</th><th>Default</th></tr></thead><tbody>
+<tr><td><code>zksync_os_repository</code></td><td><code>matter-labs/zksync-os-private</code></td></tr>
+<tr><td><code>zksync_os_tag</code></td><td><code>v0.5.5</code></td></tr>
+<tr><td><code>zkos_wrapper_repository</code></td><td><code>matter-labs/zksync-protocol-private</code></td></tr>
+</tbody></table>
+</div>
+<p>Supply <code>zkos_wrapper_version</code> and <code>era_contracts_branch</code> explicitly. Choose the wrapper revision
+and circuit configuration used by the intended prover; the OS release tag alone does not determine the VK.
+The workflow fails before building if either required input is missing.
+Set <code>commit_changes=false</code> to generate the artifacts without committing contracts changes.
+Reusable workflow callers can supply the same overrides, and default to not committing changes.</p>
+<p>The script builds the <code>zkos-wrapper/</code> workspace with <code>security_100</code> explicitly enabled.
+It runs <code>generate-vk</code> with both <code>multiblock_batch.bin</code> and <code>multiblock_batch.text</code>, the trusted setup,
+and <code>--check-aux-params</code>, matching the application-bound configuration of prover v0.9.5-private.
+That prover pins <code>zksync-protocol-private</code> revision <code>621e27502f7baf21b0eeafe742764ab474aa0f6d</code>.
+The v33.1 wrapper uses the larger <code>setup_2^25.key</code> trusted setup; the older
+<code>setup_2^24.key</code> has too few points for its SNARK domain. Both files are checksum-verified.
+The script also raises the main-thread stack limit and supplies <code>RUST_MIN_STACK</code> for worker threads.</p>
+<p>For v33, dependency checkouts, downloads, and Cargo use the configured
+<code>MATTERLABS_BOTS</code> GitHub App with contents-read access scoped to the private
+protocol, private Airbender, and private OS repositories. Public <code>era-contracts</code>
+is checked out separately using the workflow token (or <code>RELEASE_TOKEN</code> when
+contracts writes are enabled), without requesting access through the app. The app must be
+installed on these repositories. Contracts commits use <code>RELEASE_TOKEN</code>,
+which needs write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
+and Cargo Git dependencies.</p>
+<p>For a local run, first authenticate <code>gh</code> and check out the matching wrapper and contracts revisions:</p>
+<pre><code class="language-bash">WORKSPACE=/tmp/v33.1-vk \
+REPO_DIR=/path/to/era-contracts \
+ZKOS_WRAPPER_PATH=/path/to/zksync-protocol-private \
+ZKSYNC_OS_REPOSITORY=matter-labs/zksync-os-private \
+ZKSYNC_OS_TAG=v0.5.5 \
+    uv run -m scripts.update_vk
+</code></pre>
+<p>OS release assets are downloaded from <code>ZKSYNC_OS_REPOSITORY</code> with the GitHub CLI, which supports
+<code>GH_TOKEN</code>, <code>GITHUB_TOKEN</code>, or local <code>gh auth login</code> credentials.
+Local Cargo builds also need Git access to the wrapper’s private dependencies; HTTPS users can
+run <code>gh auth setup-git --hostname github.com</code> and set <code>CARGO_NET_GIT_FETCH_WITH_CLI=true</code>.
+The OS binary is downloaded afresh on each run so reusing a workspace cannot select a previous release.</p>
+<h3 id="protocol-v332"><a class="header" href="#protocol-v332">Protocol v33.2</a></h3>
+<p>v33.2 reuses v33.1’s OS release (<code>matter-labs/zksync-os-private</code>, <code>v0.5.5</code>) and
+100-bit application-bound proving configuration. It defaults to protocol PR #49
+at <code>f28fbaac166383ef19cabb96ea4c7201a8096cc3</code>, including the merge of <code>dev</code> used by
+the prover. Its SNARK domain is 2^22, so the workflow uses the existing
+checksum-verified <code>setup_2^24.key</code>. v33.1 continues using the 2^25 setup.
+Local callers can select this setup with <code>ZKOS_WRAPPER_CRS_POWER=24</code>.</p>
+<p>Run generation on the high-performance CI runner, with an explicit compatible
+contracts revision and contracts writes disabled:</p>
+<pre><code class="language-bash">gh workflow run update-vk.yaml --repo matter-labs/zksync-os-scripts \
+  --ref di/v33.1-vk \
+  -f protocol_version=v33.2 \
+  -f era_contracts_branch=8c93047d8a3b2af7333c0efdd0c1b65a7a27dd25 \
+  -f zkos_wrapper_version=f28fbaac166383ef19cabb96ea4c7201a8096cc3 \
+  -f commit_changes=false -f open_pr=false
+</code></pre>
+<p>The contracts revision above is from <code>release/v0.33.0-atomic-interop</code>; the runner
+only prepares a downloadable patch. It does not change the server or deploy
+contracts. The VK artifact also includes intermediate wrapper VKs when emitted
+by the CLI and <code>generation-manifest.json</code> with resolved source commits, OS asset
+SHA-256 hashes, and CRS selection. Verify these against the prover pins and
+bundled program before registering the generated hash. VK generation alone does
+not verify a real proof under the new key.</p>
+<h2 id="script-dependencies"><a class="header" href="#script-dependencies">Script dependencies</a></h2>
+<p>The script relies on the following external resources:</p>
+<ul>
+<li>Trusted setup CRS file <a href="https://storage.googleapis.com/matterlabs-setup-keys-europe/setup-keys/setup_2^24.key"><code>setup_2^24.key</code></a> (v33.2) or <a href="https://storage.googleapis.com/matterlabs-setup-keys-us/setup-keys/setup_2^25.key"><code>setup_2^25.key</code></a> (v33.1)</li>
+<li>ZKsync OS <code>multiblock_batch.bin</code> and <code>multiblock_batch.text</code> from <code>matter-labs/zksync-os-private</code> releases</li>
+<li><code>zkos-wrapper</code> from <code>matter-labs/zksync-protocol-private</code> to generate verification keys</li>
+<li><a href="https://github.com/matter-labs/era-contracts/tree/v0.33.2/tools/verifier-gen">Plonk verifier contract generator</a></li>
+<li><a href="https://github.com/matter-labs/era-contracts/blob/v0.33.2/recompute_hashes.sh"><code>recompute_hashes.sh</code> script to recompute contract hashes after update</a></li>
+</ul>
+<div id="admonition-script-failure" class="admonition admonish-bug" role="note" aria-labelledby="admonition-script-failure-title">
+<div class="admonition-title">
+<div id="admonition-script-failure-title">
+<p>Script failure</p>
+</div>
+<a class="admonition-anchor-link" href="#admonition-script-failure"></a>
+</div>
+<div>
+<p>If the script fails, it means that one of the dependencies is changed or unavailable.
+In this case, the script needs to be updated accordingly.</p>
+<ul>
+<li>CRS checksum mismatch → trusted setup file updated upstream
+<ul>
+<li>To fix: check with DevOps, and update the expected checksum in the script</li>
+</ul>
+</li>
+<li>Contracts regeneration failure → incompatible tooling on the <code>era-contracts</code> branch
+<ul>
+<li>To fix: align new <code>era-contracts</code> tooling updates with the scripts</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../scripts/zksync-os.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../scripts/update_server.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../scripts/zksync-os.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../scripts/update_server.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+        <script>
+            window.playground_line_numbers = true;
+        </script>
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+        <script src="../ace.js"></script>
+        <script src="../editor.js"></script>
+        <script src="../mode-rust.js"></script>
+        <script src="../theme-dawn.js"></script>
+        <script src="../theme-tomorrow_night.js"></script>
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../js/version-box.js"></script>
+        <script src="../js/mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>
