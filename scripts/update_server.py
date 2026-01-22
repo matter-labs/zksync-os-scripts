@@ -19,9 +19,7 @@ from lib.ctx import ScriptCtx
 from lib.entry import run_script
 from lib import utils
 from lib import edit_server
-
-
-GATEWAY_CHAIN_ID = "506"
+from lib import constants
 
 
 # ---------------------------------------------------------------------------
@@ -50,12 +48,8 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
             ctx.logger.info(f"Found {len(addrs)} addresses in {wf}")
             all_addrs.update(addrs)
 
-    rpc_url: str = "http://localhost:8545"
+    rpc_url: str = constants.ANVIL_DEFAULT_URL
 
-    # Anvil default rich private key
-    anvil_rich_private_key = (
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-    )
     # Fund each address
     ctx.logger.info(f"Funding {len(all_addrs)} addresses with 10 ETH each...")
     for addr in sorted(all_addrs):
@@ -63,7 +57,7 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
             f"""
             cast send {addr}
               --value 10ether
-              --private-key {anvil_rich_private_key}
+              --private-key {constants.ANVIL_RICH_PRIVATE_KEY}
               --rpc-url {rpc_url}
             """
         )
@@ -182,7 +176,7 @@ def init_ecosystem(
                           --observability=false
                           --no-port-reallocation
                           --deploy-ecosystem
-                          --l1-rpc-url="http://localhost:8545"
+                          --l1-rpc-url="{constants.ANVIL_DEFAULT_URL}"
                           --zksync-os
                         """,
                     cwd=ecosystem_dir,
@@ -229,13 +223,13 @@ def init_ecosystem(
                     cargo run --release --package zksync_os_generate_deposit -- --bridgehub "{bridgehub_address}" --chain-id {chain}
                     """
                 )
-                if chain == GATEWAY_CHAIN_ID:
+                if chain == constants.GATEWAY_CHAIN_ID:
                     ctx.sh(
                         f"""
                             {zkstack_bin}
                             chain gateway create-tx-filterer
-                            --chain {GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="http://localhost:8545"
+                            --chain {constants.GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="{constants.ANVIL_DEFAULT_URL}"
                             --ignore-prerequisites
                             """,
                         cwd=ecosystem_dir,
@@ -244,8 +238,8 @@ def init_ecosystem(
                         f"""
                             {zkstack_bin}
                             chain gateway convert-to-gateway
-                            --chain {GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="http://localhost:8545"
+                            --chain {constants.GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="{constants.ANVIL_DEFAULT_URL}"
                             --ignore-prerequisites
                             --no-gateway-overrides
                             """,
@@ -325,7 +319,7 @@ def script(ctx: ScriptCtx) -> None:
     if protocol_version == "v30.2":
         init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
     else:
-        init_ecosystem(ctx, "multi_chain", ["6565", "6566", GATEWAY_CHAIN_ID])
+        init_ecosystem(ctx, "multi_chain", ["6565", "6566", constants.GATEWAY_CHAIN_ID])
 
     # ------------------------------------------------------------------ #
     # Update VK hash in prover config

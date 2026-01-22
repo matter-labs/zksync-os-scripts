@@ -27,7 +27,8 @@ inputs:
     type: string
     description: 'Version of zksync-era to checkout.'
     required: false
-    default: 'draft-v31'
+    default: 'sb/split-gw-ctm-deployer'
+    # default: 'draft-v31'
   era-contracts-version:
     type: string
     description: 'Version of era-contracts to checkout.'
