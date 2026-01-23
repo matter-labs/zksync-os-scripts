@@ -16,7 +16,7 @@ Steps:
 from email.mime import base
 from pathlib import Path
 
-from lib.ctx import ScriptCtx
+from lib.script_context import ScriptCtx
 from lib.entry import run_script
 from lib import utils
 from lib import edit_server

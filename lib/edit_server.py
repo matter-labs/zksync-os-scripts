@@ -75,33 +75,6 @@ def update_rust_const(
     path.write_text(new_text, encoding="utf-8")
 
 
-def update_operator_keys(
-    config_rs: Path,
-    wallets_yaml: Path,
-) -> None:
-    """
-    Reads operator private keys from wallets.yaml and updates
-    OPERATOR_*_PK constants in the Rust config file.
-    """
-    # Map wallet names → Rust const names
-    mapping = {
-        "blob_operator": "OPERATOR_COMMIT_PK",
-        "prove_operator": "OPERATOR_PROVE_PK",
-        "execute_operator": "OPERATOR_EXECUTE_PK",
-    }
-    data = utils.load_yaml(wallets_yaml)
-    for wallet_name, const in mapping.items():
-        entry = data.get(wallet_name)
-        if not isinstance(entry, dict) or not entry.get("private_key"):
-            raise SystemExit(
-                f"Missing private key for '{wallet_name}' in {wallets_yaml}"
-            )
-
-        pk_raw = entry["private_key"]
-        pk = utils.normalize_hex(pk_raw, length=64)
-        update_rust_const(config_rs, const, pk)
-
-
 def get_contract_address(
     contracts_yaml: Path,
     field: str,
@@ -167,30 +140,6 @@ def update_chain_config_yaml(
             sort_keys=False,
         )
         f.write("\n")  # keep POSIX newline
-
-
-def update_contracts_addresses(
-    config_rs: Path,
-    contracts_yaml: Path,
-) -> None:
-    """
-    Reads bridgehub + bytecode supplier addresses from a contracts.yaml
-    and writes them into Rust constants.
-    """
-
-    data = utils.load_yaml(contracts_yaml)
-
-    mapping = {
-        "bridgehub_proxy_addr": "BRIDGEHUB_ADDRESS",
-        "l1_bytecodes_supplier_addr": "BYTECODE_SUPPLIER_ADDRESS",
-    }
-
-    for yaml_field, rust_const in mapping.items():
-        val = data.get("ecosystem_contracts").get(yaml_field)
-        if not val:
-            raise SystemExit(f"{yaml_field} not found in {contracts_yaml}")
-        address = utils.normalize_hex(val, length=40)
-        update_rust_const(config_rs, rust_const, address)
 
 
 def update_vk_hash(

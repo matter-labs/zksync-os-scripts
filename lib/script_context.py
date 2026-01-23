@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import contextlib
 import logging
 import os
@@ -11,8 +9,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Mapping, Optional, Union
-from .log import get_console
+from log import get_console
+import constants
 
+
+logger = logging.getLogger(constants.LOGGER_NAME)
 _console = get_console()
 
 
@@ -28,7 +29,6 @@ class ScriptCtx:
     verbose: bool
 
     # Logging
-    log_dir: Optional[Path]
     log_file: Optional[Path]
     logger: logging.Logger
 

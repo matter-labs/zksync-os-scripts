@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from lib.ctx import ScriptCtx
+from lib.script_context import ScriptCtx
 from lib.entry import run_script
 from lib.constants import ZKSYNC_OS_URL
 import lib.utils as utils
