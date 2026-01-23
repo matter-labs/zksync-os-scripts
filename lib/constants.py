@@ -14,3 +14,6 @@ ANVIL_RICH_PRIVATE_KEY: str = (
 
 # Default gateway chain ID
 GATEWAY_CHAIN_ID = 506
+
+# Default logger name
+LOGGER_NAME = "zksync-os-scripts"

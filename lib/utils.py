@@ -7,7 +7,14 @@ import time
 import urllib.request
 from pathlib import Path
 import yaml
+from shutil import which
+from packaging.specifiers import SpecifierSet
 from packaging.version import Version
+import logging
+import constants
+
+
+logger = logging.getLogger(constants.LOGGER_NAME)
 
 
 def require_env(name: str, default: str = None) -> str:
@@ -20,6 +27,36 @@ def require_env(name: str, default: str = None) -> str:
         # Keep it simple; run_main will not even start if this fails.
         raise SystemExit(f"Missing required environment variable: {name}")
     return val
+
+
+def require_path(env_var: str) -> Path:
+    """
+    Return a path resolved from an environment variable or a default inside the workspace.
+
+    Example:
+        utils.require_path("REPO_PATH")
+    """
+    val = os.environ.get(env_var)
+    if not val:
+        raise SystemExit(f"Missing required path: {env_var}")
+    return Path(val).resolve()
+
+
+def require_cmds(tools: dict[str, str]) -> None:
+    """
+    Ensure required command-line tools are available with correct versions.
+    """
+    missing = [t for t in tools if which(t) is None]
+    if missing:
+        raise SystemExit(f"Missing required tools: {', '.join(missing)}")
+    for tool, constraint in tools.items():
+        version = get_cmd_version(tool)
+        spec = SpecifierSet(constraint)
+        if version not in spec:
+            raise SystemExit(
+                f"{tool} {version} does not satisfy required version {constraint}"
+            )
+        logger.info(f"Found {tool} {version} ✔")
 
 
 def load_yaml(path: Path) -> dict:
@@ -208,3 +245,17 @@ def addresses_from_wallets_yaml(data: dict) -> set[str]:
             addrs.add(f"0x{addr:040x}")
 
     return addrs
+
+
+def replace_with_symlink(target: Path, source: Path) -> None:
+    """
+    Replace target with a symlink to source.
+    If target exists, it is removed first.
+    """
+    if target == source:
+        return
+    if target.is_symlink() or target.is_file():
+        target.unlink()
+    elif target.is_dir():
+        shutil.rmtree(target)
+    target.symlink_to(source, target_is_directory=source.is_dir())

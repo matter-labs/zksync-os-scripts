@@ -194,66 +194,38 @@ def update_contracts_addresses(
 
 
 def update_vk_hash(
-    file: Path,
+    rust_file: Path,
+    vk_hash_file: Path,
     proving_version: str,
 ) -> None:
     """
-    Update or insert a V{execution_version}_VK_HASH block in the given Rust file.
-
-    - If const V{N}_VK_HASH exists: replace its comment + hash.
-    - If it doesn't: append a new block after the last V*_VK_HASH block.
+    Update or insert a V{proving_version}_VK_HASH constant in the given Rust file.
     """
-    wrapper_version = utils.require_env("ZKOS_WRAPPER_TAG", "local")
-    airbender_version = utils.require_env("ZKSYNC_AIRBENDER_TAG", "local")
-    os_version = utils.require_env("ZKSYNC_OS_TAG", "local")
-    era_contracts_path = Path(utils.require_env("ERA_CONTRACTS_PATH")).resolve()
 
-    vk_hash_file = (
-        era_contracts_path
-        / "l1-contracts"
-        / "contracts"
-        / "state-transition"
-        / "verifiers"
-        / "ZKsyncOSVerifierPlonk.sol"
-    )
     vk_hash = utils.extract_vk_hash(vk_hash_file)
-
-    text = file.read_text(encoding="utf-8")
-
+    text = rust_file.read_text(encoding="utf-8")
     const_name = f"V{proving_version}_VK_HASH"
-    # New block we want to write
-    new_block = (
-        f"    /// verification key hash generated from zksync-os {os_version}, "
-        f"zksync-airbender {airbender_version} and zkos-wrapper {wrapper_version}\n"
-        f"    const {const_name}: &'static str =\n"
-        f'        "{vk_hash}";'
-    )
-
-    # Pattern for an *existing* block for this V{N} (comment + const + hex)
-    pattern = re.compile(
+    new_const = f'    const {const_name}: &\'static str =\n        "{vk_hash}";'
+    update_pattern = re.compile(
         rf"""
-        (                           # entire block
-          [ \t]*///[^\n]*\n         # comment line
-          [ \t]*const\s+{const_name}:\s*&'static\s*str\s*=\s*\n
-          [ \t]*"0x[0-9a-fA-F]+"\s*;   # hash line
-        )
+        (^([ \t]*const\s+{re.escape(const_name)}\s*:\s*&'static\s*str\s*=\s*\n
+           [ \t]*")            # prefix incl. opening quote
+         (0x[0-9a-fA-F]+)      # old hash
+         ("\s*;)               # closing quote + semicolon
         """,
         re.VERBOSE | re.MULTILINE,
     )
 
-    match = pattern.search(text)
-    if match:
-        # Case 1: update existing V{N}_VK_HASH block
-        old_block = match.group(1)
-        text = text.replace(old_block, new_block)
-        file.write_text(text, encoding="utf-8")
+    m = update_pattern.search(text)
+    if m:
+        start, end = m.span(3)
+        text = text[:start] + vk_hash + text[end:]
+        rust_file.write_text(text, encoding="utf-8")
         return
 
-    # Case 2: append new V{N}_VK_HASH block after the last existing VK block
-    all_blocks = list(
+    all_consts = list(
         re.finditer(
             r"""
-            [ \t]*///[^\n]*\n
             [ \t]*const\s+V\d+_VK_HASH:[^;]*;
             """,
             text,
@@ -261,14 +233,13 @@ def update_vk_hash(
         )
     )
 
-    if all_blocks:
-        last = all_blocks[-1]
+    if all_consts:
+        last = all_consts[-1]
         insert_pos = last.end()
-        text = text[:insert_pos] + "\n" + new_block + text[insert_pos:]
+        text = text[:insert_pos] + "\n" + new_const + text[insert_pos:]
     else:
         raise SystemExit(
-            f"No existing VK hash blocks found in {file} to edit or append. "
-            f"Please, check the file and update the script accordingly."
+            f"No existing VK hash constants found in {rust_file} to edit or append."
         )
 
-    file.write_text(text, encoding="utf-8")
+    rust_file.write_text(text, encoding="utf-8")

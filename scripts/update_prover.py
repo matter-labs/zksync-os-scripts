@@ -15,7 +15,7 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Download ZKsync OS binary", expected=20):
         asset_name = "multiblock_batch.bin"
         asset_url = f"{zksync_os_url}/releases/download/{zksync_os_tag}/{asset_name}"
-        output_file = ctx.tmp_dir / asset_name
+        output_file = ctx.workspace / asset_name
         utils.download(asset_url, output_file)
 
     # ------------------------------------------------------------------ #
@@ -24,8 +24,6 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Copy binary to repository", expected=5):
         target = ctx.repo_dir / "multiblock_batch.bin"
         utils.cp(output_file, target)
-
-    # TODO: automatically add new prover structure
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Tooling check
     # ------------------------------------------------------------------ #
-    ctx.require_cmds(
+    utils.require_cmds(
         {
             "cargo": ">=1.89",
         }
@@ -21,20 +21,18 @@ def script(ctx: ScriptCtx) -> None:
 
     # ------------------------------------------------------------------ #
     with ctx.section("Generating fibonacci SNARK proof", expected=350):
-        airbender_dir = ctx.path_from_env("ZKSYNC_AIRBENDER_PATH", "zksync-airbender")
+        airbender_dir = utils.require_path("ZKSYNC_AIRBENDER_PATH")
         ctx.sh(
             f"""
             cargo run -p cli --release prove
               --bin examples/hashed_fibonacci/app.bin
               --input-file examples/hashed_fibonacci/input.txt
               --until final-proof
-              --output-dir {ctx.tmp_dir}
+              --output-dir {ctx.repo_dir / "wrapper" / "testing_data"}
+              --final-proof-name risc_proof
             """,
             cwd=airbender_dir,
         )
-        generated_json = ctx.tmp_dir / "final_program_proof.json"
-        risc_proof = ctx.repo_dir / "wrapper" / "testing_data" / "risc_proof"
-        utils.cp(generated_json, risc_proof)
 
     # ------------------------------------------------------------------ #
     with ctx.section("Updating test data", expected=1780):

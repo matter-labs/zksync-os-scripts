@@ -87,13 +87,13 @@ def init_ecosystem(
     ecosystem_name: str,
     chains: list[str],
 ) -> None:
-    era_contracts_path = ctx.path_from_env("ERA_CONTRACTS_PATH", "era-contracts")
-    zksync_era_path = ctx.path_from_env("ZKSYNC_ERA_PATH", "zksync-era")
+    era_contracts_path = utils.require_path("ERA_CONTRACTS_PATH")
+    zksync_era_path = utils.require_path("ZKSYNC_ERA_PATH")
     protocol_version = utils.require_env("PROTOCOL_VERSION")
 
     zkstack_bin = zksync_era_path / "zkstack_cli" / "target" / "release" / "zkstack"
-    ecosystems_dir = ctx.tmp_dir / "ecosystems"
-    ecosystem_dir = ctx.tmp_dir / "ecosystems" / ecosystem_name
+    ecosystems_dir = ctx.workspace / "ecosystems"
+    ecosystem_dir = ctx.workspace / "ecosystems" / ecosystem_name
 
     with ctx.section(f"Initialize {ecosystem_name} ecosystem", expected=120):
         utils.clean_dir(ecosystem_dir)
@@ -254,8 +254,8 @@ def init_ecosystem(
 
 def script(ctx: ScriptCtx) -> None:
     # Paths & constants
-    era_contracts_path = ctx.path_from_env("ERA_CONTRACTS_PATH", "era-contracts")
-    zksync_era_path = ctx.path_from_env("ZKSYNC_ERA_PATH", "zksync-era")
+    era_contracts_path = utils.require_path("ERA_CONTRACTS_PATH")
+    zksync_era_path = utils.require_path("ZKSYNC_ERA_PATH")
     zksync_os_execution_version = utils.require_env("ZKSYNC_OS_EXECUTION_VERSION")
     proving_version = utils.require_env("PROVING_VERSION")
     protocol_version = utils.require_env("PROTOCOL_VERSION")
@@ -263,7 +263,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Tooling check
     # ------------------------------------------------------------------ #
-    ctx.require_cmds(
+    utils.require_cmds(
         {
             "yarn": ">=1.22",
             "anvil": "==1.5.1",
@@ -294,6 +294,12 @@ def script(ctx: ScriptCtx) -> None:
     # Build zkstack CLI
     # ------------------------------------------------------------------ #
     with ctx.section("Build zkstack CLI", expected=100):
+        # TODO: remove this part when zkstack is independent of submodule
+        # As zkstack has hardcoded path to contracts submodule,
+        # we need to replace submodule with symlink
+        # to actual era-contracts the script is using
+        utils.replace_with_symlink(zksync_era_path / "contracts", era_contracts_path)
+
         ctx.sh(
             """
             cargo build --release --bin zkstack
@@ -332,6 +338,12 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     edit_server.update_vk_hash(
         ctx.repo_dir / "lib" / "types" / "src" / "protocol" / "proving_version.rs",
+        era_contracts_path
+        / "l1-contracts"
+        / "contracts"
+        / "state-transition"
+        / "verifiers"
+        / "ZKsyncOSVerifierPlonk.sol",
         proving_version,
     )
 

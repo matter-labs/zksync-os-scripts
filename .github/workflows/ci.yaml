@@ -48,19 +48,12 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
 
-      - name: Update contracts in zksync-era
+      - name: Update wrapper
         run: |
-          rm -rf ${WORKSPACE}/zksync-era/contracts
-          ln -s ${WORKSPACE}/era-contracts ${WORKSPACE}/zksync-era/contracts
-
-
-      # TODO: long time step, enable when needed later
-      # - name: Update wrapper
-      #   run: |
-      #     REPO_DIR=${PWD}/workspace/zkos-wrapper \
-      #     WORKSPACE=${PWD}/workspace \
-      #     ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
-      #     uv run -m scripts.update_wrapper
+          REPO_DIR=${PWD}/workspace/zkos-wrapper \
+          WORKSPACE=${PWD}/workspace \
+          ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
+          uv run -m scripts.update_wrapper
 
       - name: Update vk
         run: |

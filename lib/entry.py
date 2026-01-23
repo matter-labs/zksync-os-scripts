@@ -3,12 +3,10 @@ import sys
 from pathlib import Path
 from time import perf_counter
 
-from .ctx import ScriptCtx
+from ctx import ScriptCtx
 import datetime as _dt
-from .log import setup_logger, get_console
-from .utils import require_env
-
-_console = get_console()
+from log import setup_logger, get_console
+from utils import require_env
 
 
 def _env_bool(name, default=False):
@@ -32,7 +30,7 @@ def init_ctx(required_env) -> ScriptCtx:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{script_name}-{ts}.log"
 
-    logger = setup_logger(script_name, log_file, verbose)
+    logger = setup_logger(log_file, verbose)
 
     ctx = ScriptCtx(
         workspace=workspace,
@@ -48,6 +46,7 @@ def init_ctx(required_env) -> ScriptCtx:
 
 
 def run_script(script, *, required_env=()):
+    _console = get_console()
     start = perf_counter()
     try:
         ctx = init_ctx(required_env=required_env)
