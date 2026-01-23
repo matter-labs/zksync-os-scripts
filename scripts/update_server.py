@@ -13,6 +13,7 @@ Steps:
 - Stop Anvil
 """
 
+from email.mime import base
 from pathlib import Path
 
 from lib.ctx import ScriptCtx
@@ -202,12 +203,11 @@ def init_ecosystem(
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
                 )
-                if ecosystem_name == "multi_chain":
-                    wallets_out = base / f"wallets_{chain}.yaml"
-                    contracts_out = base / f"contracts_{chain}.yaml"
-                else:
-                    wallets_out = base / "wallets.yaml"
-                    contracts_out = base / "contracts.yaml"
+                name_suffix = f"_{chain}" if ecosystem_name == "multi_chain" else ""
+                wallets_out = base / f"wallets{name_suffix}.yaml"
+                contracts_out = base / f"contracts{name_suffix}.yaml"
+
+                # Copy wallets.yaml and contracts.yaml to local-chains
                 utils.cp(chain_wallets_yaml, wallets_out)
                 utils.cp(contracts_yaml, contracts_out)
                 # ------------------------------------------------------------------ #
@@ -274,14 +274,20 @@ def script(ctx: ScriptCtx) -> None:
     )
 
     # ------------------------------------------------------------------ #
-    # Build L1 contracts
+    # Build contracts
     # ------------------------------------------------------------------ #
-    with ctx.section("Build L1 contracts", expected=120):
+    with ctx.section("Build contracts", expected=120):
         ctx.sh(
             """
             yarn build:foundry
             """,
             cwd=era_contracts_path / "l1-contracts",
+        )
+        ctx.sh(
+            """
+            yarn build:foundry
+            """,
+            cwd=era_contracts_path / "da-contracts",
         )
 
     # ------------------------------------------------------------------ #
