@@ -11,7 +11,7 @@ from shutil import which
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 import logging
-import constants
+from lib import constants
 
 
 logger = logging.getLogger(constants.LOGGER_NAME)

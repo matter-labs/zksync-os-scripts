@@ -4,8 +4,8 @@ from time import perf_counter
 
 from lib.script_context import ScriptCtx
 import datetime as _dt
-from log import setup_logger, get_console
-from utils import require_env
+from lib.log import setup_logger, get_console
+from lib.utils import require_env
 
 
 def _env_bool(name, default=False):
@@ -37,7 +37,6 @@ def init_ctx(required_env) -> ScriptCtx:
         script_name=script_name,
         component=component,
         verbose=verbose,
-        log_dir=log_dir,
         log_file=log_file,
         logger=logger,
     )

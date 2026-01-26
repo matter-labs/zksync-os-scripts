@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Mapping, Optional, Union
-from log import get_console
-import constants
+from lib.log import get_console
+from lib import constants
 
 
 logger = logging.getLogger(constants.LOGGER_NAME)

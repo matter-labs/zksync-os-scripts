@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import logging
-import constants
+from lib import constants
 
 from rich.console import Console
 from rich.logging import RichHandler
