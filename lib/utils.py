@@ -1,9 +1,11 @@
+import hashlib
 import contextlib
 import re
 import shutil
 import os
 import subprocess
 import time
+from typing import Optional
 import urllib.request
 from pathlib import Path
 import yaml
@@ -99,20 +101,47 @@ def cp(src: Path, dst: Path) -> None:
         raise FileNotFoundError(f"File not found after copy: {dst}")
 
 
-def download(url: str, dest: Path, force: bool = False) -> None:
-    """Minimal, safe downloader"""
+def download(
+    url: str,
+    dest: Path,
+    force: bool = False,
+    checksum: Optional[str] = None,
+    checksum_algo: str = "sha256",
+) -> None:
+    """Download file with optional checksum verification"""
+    dest = Path(dest)
+
     if dest.exists() and not force:
         return
-    dest = Path(dest)
+
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".tmp")
+
+    hasher = hashlib.new(checksum_algo) if checksum else None
+
     try:
         with urllib.request.urlopen(url) as r:
             if r.status >= 400:
                 raise RuntimeError(f"HTTP {r.status} for URL: {url}")
+
             with tmp.open("wb") as f:
-                shutil.copyfileobj(r, f)  # efficient streaming copy
+                while True:
+                    chunk = r.read(1024 * 1024)  # 1 MB chunks
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    if hasher:
+                        hasher.update(chunk)
+
+        if hasher:
+            digest = hasher.hexdigest()
+            if digest.lower() != checksum.lower():
+                raise RuntimeError(
+                    f"Checksum mismatch for {url}: expected {checksum}, got {digest}"
+                )
+
         tmp.replace(dest)  # atomic move
+
     except Exception:
         tmp.unlink(missing_ok=True)
         raise
@@ -259,3 +288,32 @@ def replace_with_symlink(target: Path, source: Path) -> None:
     elif target.is_dir():
         shutil.rmtree(target)
     target.symlink_to(source, target_is_directory=source.is_dir())
+
+
+def parse_protocol_version(version: str) -> tuple[int, int]:
+    """
+    Parse a protocol version string like 'v31.0' into a (minor, patch) tuple.
+
+    Args:
+        version: Version string in format 'vX.Y' where X and Y are non-negative integers.
+
+    Returns:
+        Tuple of (minor, patch) integers.
+
+    Raises:
+        ValueError: If the version string is empty, malformed, or contains invalid values.
+    """
+    if not version or not isinstance(version, str):
+        raise ValueError(
+            f"Protocol version must be a non-empty string, got: {version!r}"
+        )
+
+    version = version.strip()
+    if not re.match(r"^v\d+\.\d+$", version):
+        raise ValueError(
+            f"Invalid protocol version format: '{version}'. Expected format: 'vX.Y' (e.g., 'v31.0')"
+        )
+
+    # Remove the 'v' prefix and split
+    minor_str, patch_str = version[1:].split(".")
+    return (int(minor_str), int(patch_str))

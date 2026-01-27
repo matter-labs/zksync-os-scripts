@@ -3,7 +3,7 @@
 from lib.script_context import ScriptCtx
 from lib.entry import run_script
 import lib.utils as utils
-from lib.constants import ZKSYNC_OS_URL
+import lib.constants as constants
 
 
 def script(ctx: ScriptCtx) -> None:
@@ -21,18 +21,18 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     zkos_wrapper_path = utils.require_path("ZKOS_WRAPPER_PATH")
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
-    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", ZKSYNC_OS_URL)
+    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", constants.ZKSYNC_OS_URL)
 
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file
     # ------------------------------------------------------------------ #
     with ctx.section("Download CRS file", expected=30):
-        crs_url = (
-            "https://storage.googleapis.com/matterlabs-setup-keys-europe/"
-            "setup-keys/setup_2^24.key"
-        )
         crs_path = ctx.workspace / "setup.key"
-        utils.download(crs_url, crs_path)
+        utils.download(
+            constants.CRS_FILE_URL,
+            crs_path,
+            checksum=constants.CRS_FILE_SHA256_CHECKSUM,
+        )
 
     # ------------------------------------------------------------------ #
     # Download ZKsync OS binary (multiblock_batch.bin) for given tag

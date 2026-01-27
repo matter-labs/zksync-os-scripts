@@ -150,35 +150,31 @@ def update_vk_hash(
     """
     Update or insert a V{proving_version}_VK_HASH constant in the given Rust file.
     """
-
     vk_hash = utils.extract_vk_hash(vk_hash_file)
     text = rust_file.read_text(encoding="utf-8")
+
     const_name = f"V{proving_version}_VK_HASH"
     new_const = f'    const {const_name}: &\'static str =\n        "{vk_hash}";'
+
     update_pattern = re.compile(
-        rf"""
-        (^([ \t]*const\s+{re.escape(const_name)}\s*:\s*&'static\s*str\s*=\s*\n
-           [ \t]*")            # prefix incl. opening quote
-         (0x[0-9a-fA-F]+)      # old hash
-         ("\s*;)               # closing quote + semicolon
-        """,
-        re.VERBOSE | re.MULTILINE,
+        rf'(^[ \t]*const\s+{re.escape(const_name)}\s*:\s*&\'static\s*str\s*=\s*\n[ \t]*")([^"]*)("\s*;)',
+        flags=re.MULTILINE,
     )
 
-    m = update_pattern.search(text)
-    if m:
-        start, end = m.span(3)
-        text = text[:start] + vk_hash + text[end:]
-        rust_file.write_text(text, encoding="utf-8")
+    # Use \g<1> and \g<3> to avoid \10 ambiguity when vk_hash starts with digits.
+    new_text, n = update_pattern.subn(rf"\g<1>{vk_hash}\g<3>", text, count=1)
+    if n == 1:
+        rust_file.write_text(new_text, encoding="utf-8")
         return
 
     all_consts = list(
         re.finditer(
             r"""
-            [ \t]*const\s+V\d+_VK_HASH:[^;]*;
+            ^[ \t]*const\s+V\d+_VK_HASH\s*:\s*&'static\s*str\s*=\s*\n
+            [ \t]*"[^"]*"\s*;
             """,
             text,
-            re.VERBOSE | re.MULTILINE | re.DOTALL,
+            re.VERBOSE | re.MULTILINE,
         )
     )
 

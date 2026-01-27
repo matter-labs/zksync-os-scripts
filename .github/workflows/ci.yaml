@@ -55,17 +55,18 @@ jobs:
       #     ZKSYNC_AIRBENDER_PATH=${PWD}/workspace/zksync-airbender \
       #     uv run -m scripts.update_wrapper
 
-      - name: Update vk
-        run: |
-          REPO_DIR=${WORKSPACE}/era-contracts \
-          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
-          ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
-            uv run -m scripts.update_vk
-          (
-            cd ${WORKSPACE}/era-contracts
-            git status
-            git diff
-          )
+
+      # - name: Update vk
+      #   run: |
+      #     REPO_DIR=${WORKSPACE}/era-contracts \
+      #     ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
+      #     ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
+      #       uv run -m scripts.update_vk
+      #     (
+      #       cd ${WORKSPACE}/era-contracts
+      #       git status
+      #       git diff
+      #     )
 
       - name: Update server
         run: |

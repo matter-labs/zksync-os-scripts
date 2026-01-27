@@ -73,6 +73,7 @@ def run_script(script, *, required_env=()):
         raise
     except Exception as e:
         _console.print(f"[red]✘ Script error: {e!r}[/]")
+        _console.print_exception()
         sys.exit(1)
     else:
         total = perf_counter() - start
