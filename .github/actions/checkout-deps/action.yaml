@@ -69,6 +69,7 @@ runs:
         repository: matter-labs/zksync-era
         path: ${{ inputs.checkout-dir }}/zksync-era
         ref: ${{ inputs.zksync-era-version }}
+        submodules: 'recursive'
 
     - name: Checkout era-contracts
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
