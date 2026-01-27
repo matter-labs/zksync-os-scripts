@@ -150,7 +150,7 @@ class ScriptCtx:
 
         rc = proc.wait()
         if rc != 0:
-            self.logger.error(f"command failed with exit code {rc}")
+            self.logger.error(f"command in {cwd_path} failed with exit code {rc}")
             self._tail_last_lines()
             raise subprocess.CalledProcessError(rc, argv)
 
