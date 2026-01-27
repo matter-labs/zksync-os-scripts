@@ -15,13 +15,11 @@ Steps:
 
 from pathlib import Path
 
-from lib.ctx import ScriptCtx
+from lib.script_context import ScriptCtx
 from lib.entry import run_script
 from lib import utils
 from lib import edit_server
-
-
-GATEWAY_CHAIN_ID = "506"
+from lib import constants
 
 
 # ---------------------------------------------------------------------------
@@ -50,12 +48,8 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
             ctx.logger.info(f"Found {len(addrs)} addresses in {wf}")
             all_addrs.update(addrs)
 
-    rpc_url: str = "http://localhost:8545"
+    rpc_url: str = constants.ANVIL_DEFAULT_URL
 
-    # Anvil default rich private key
-    anvil_rich_private_key = (
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-    )
     # Fund each address
     ctx.logger.info(f"Funding {len(all_addrs)} addresses with 10 ETH each...")
     for addr in sorted(all_addrs):
@@ -63,7 +57,7 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
             f"""
             cast send {addr}
               --value 10ether
-              --private-key {anvil_rich_private_key}
+              --private-key {constants.ANVIL_RICH_PRIVATE_KEY}
               --rpc-url {rpc_url}
             """
         )
@@ -92,13 +86,14 @@ def init_ecosystem(
     ecosystem_name: str,
     chains: list[str],
 ) -> None:
-    era_contracts_path = ctx.path_from_env("ERA_CONTRACTS_PATH", "era-contracts")
-    zksync_era_path = ctx.path_from_env("ZKSYNC_ERA_PATH", "zksync-era")
+    era_contracts_path = utils.require_path("ERA_CONTRACTS_PATH")
+    zksync_era_path = utils.require_path("ZKSYNC_ERA_PATH")
     protocol_version = utils.require_env("PROTOCOL_VERSION")
 
     zkstack_bin = zksync_era_path / "zkstack_cli" / "target" / "release" / "zkstack"
-    ecosystems_dir = ctx.tmp_dir / "ecosystems"
-    ecosystem_dir = ctx.tmp_dir / "ecosystems" / ecosystem_name
+    ecosystems_dir = ctx.workspace / "ecosystems"
+    ecosystem_dir = ctx.workspace / "ecosystems" / ecosystem_name
+    base = ctx.repo_dir / "local-chains" / protocol_version / ecosystem_name
 
     with ctx.section(f"Initialize {ecosystem_name} ecosystem", expected=120):
         utils.clean_dir(ecosystem_dir)
@@ -135,59 +130,58 @@ def init_ecosystem(
         # Remove default era chain (non zksync-os)
         utils.clean_dir(ecosystem_dir / "chains")
 
-    for chain in chains:
-        ctx.sh(
-            f"""
-            {zkstack_bin}
-              chain create
-              --chain-name {chain}
-              --chain-id {chain}
-              --prover-mode no-proofs
-              --wallet-creation random
-              --l1-batch-commit-data-generator-mode rollup
-              --base-token-address 0x0000000000000000000000000000000000000001
-              --base-token-price-nominator 1
-              --base-token-price-denominator 1
-              --evm-emulator false
-              --set-as-default=true
-              --zksync-os
-            """,
-            cwd=ecosystem_dir,
-        )
+        for chain in chains:
+            ctx.sh(
+                f"""
+                {zkstack_bin}
+                  chain create
+                  --chain-name {chain}
+                  --chain-id {chain}
+                  --prover-mode no-proofs
+                  --wallet-creation random
+                  --l1-batch-commit-data-generator-mode rollup
+                  --base-token-address 0x0000000000000000000000000000000000000001
+                  --base-token-price-nominator 1
+                  --base-token-price-denominator 1
+                  --evm-emulator false
+                  --set-as-default=true
+                  --zksync-os
+                """,
+                cwd=ecosystem_dir,
+            )
 
-        # ------------------------------------------------------------------ #
-        # Start Anvil
-        # ------------------------------------------------------------------ #
-        with ctx.section(
-            f"Generating zkos-l1-state.json for {ecosystem_name}", expected=250
-        ):
-            base = ctx.repo_dir / "local-chains" / protocol_version / ecosystem_name
-            l1_state_file = base / "zkos-l1-state.json"
-            with utils.anvil_dump_state(l1_state_file=l1_state_file):
-                # ------------------------------------------------------------------ #
-                # Fund accounts
-                # ------------------------------------------------------------------ #
-                ctx.logger.info("Funding accounts...")
-                fund_accounts(ctx, ecosystem_dir)
-                # ------------------------------------------------------------------ #
-                # Deploy L1 contracts via zkstack
-                # ------------------------------------------------------------------ #
-                ctx.logger.info("Deploying L1 contracts...")
-                ctx.sh(
-                    f"""
-                        {zkstack_bin}
-                          ecosystem init
-                          --deploy-paymaster=false
-                          --deploy-erc20=false
-                          --observability=false
-                          --no-port-reallocation
-                          --deploy-ecosystem
-                          --l1-rpc-url="http://localhost:8545"
-                          --zksync-os
-                        """,
-                    cwd=ecosystem_dir,
-                )
-
+    # ------------------------------------------------------------------ #
+    # Start Anvil
+    # ------------------------------------------------------------------ #
+    with ctx.section(
+        f"Generating zkos-l1-state.json for {ecosystem_name}", expected=250
+    ):
+        l1_state_file = base / "zkos-l1-state.json"
+        with utils.anvil_dump_state(l1_state_file=l1_state_file):
+            # ------------------------------------------------------------------ #
+            # Fund accounts
+            # ------------------------------------------------------------------ #
+            ctx.logger.info("Funding accounts...")
+            fund_accounts(ctx, ecosystem_dir)
+            # ------------------------------------------------------------------ #
+            # Deploy L1 contracts via zkstack
+            # ------------------------------------------------------------------ #
+            ctx.logger.info("Deploying L1 contracts...")
+            ctx.sh(
+                f"""
+                    {zkstack_bin}
+                      ecosystem init
+                      --deploy-paymaster=false
+                      --deploy-erc20=false
+                      --observability=false
+                      --no-port-reallocation
+                      --deploy-ecosystem
+                      --l1-rpc-url="{constants.ANVIL_DEFAULT_URL}"
+                      --zksync-os
+                    """,
+                cwd=ecosystem_dir,
+            )
+            for chain in chains:
                 # ------------------------------------------------------------------ #
                 # Update contract addresses and operator keys
                 # ------------------------------------------------------------------ #
@@ -208,12 +202,10 @@ def init_ecosystem(
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
                 )
-                if ecosystem_name == "multi_chain":
-                    wallets_out = base / f"wallets_{chain}.yaml"
-                    contracts_out = base / f"contracts_{chain}.yaml"
-                else:
-                    wallets_out = base / "wallets.yaml"
-                    contracts_out = base / "contracts.yaml"
+                name_suffix = f"_{chain}" if ecosystem_name == "multi_chain" else ""
+                wallets_out = base / f"wallets{name_suffix}.yaml"
+                contracts_out = base / f"contracts{name_suffix}.yaml"
+                # Copy wallets.yaml and contracts.yaml to local-chains
                 utils.cp(chain_wallets_yaml, wallets_out)
                 utils.cp(contracts_yaml, contracts_out)
                 # ------------------------------------------------------------------ #
@@ -229,13 +221,13 @@ def init_ecosystem(
                     cargo run --release --package zksync_os_generate_deposit -- --bridgehub "{bridgehub_address}" --chain-id {chain}
                     """
                 )
-                if chain == GATEWAY_CHAIN_ID:
+                if chain == constants.GATEWAY_CHAIN_ID:
                     ctx.sh(
                         f"""
                             {zkstack_bin}
                             chain gateway create-tx-filterer
-                            --chain {GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="http://localhost:8545"
+                            --chain {constants.GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="{constants.ANVIL_DEFAULT_URL}"
                             --ignore-prerequisites
                             """,
                         cwd=ecosystem_dir,
@@ -244,8 +236,8 @@ def init_ecosystem(
                         f"""
                             {zkstack_bin}
                             chain gateway convert-to-gateway
-                            --chain {GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="http://localhost:8545"
+                            --chain {constants.GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="{constants.ANVIL_DEFAULT_URL}"
                             --ignore-prerequisites
                             --no-gateway-overrides
                             """,
@@ -256,12 +248,11 @@ def init_ecosystem(
 # ---------------------------------------------------------------------------
 # Main orchestration
 # ---------------------------------------------------------------------------
-
-
 def script(ctx: ScriptCtx) -> None:
     # Paths & constants
-    era_contracts_path = ctx.path_from_env("ERA_CONTRACTS_PATH", "era-contracts")
-    zksync_era_path = ctx.path_from_env("ZKSYNC_ERA_PATH", "zksync-era")
+    era_contracts_path = utils.require_path("ERA_CONTRACTS_PATH")
+    zksync_era_path = utils.require_path("ZKSYNC_ERA_PATH")
+    zkstack_era_contracts_path = zksync_era_path / "contracts"
     zksync_os_execution_version = utils.require_env("ZKSYNC_OS_EXECUTION_VERSION")
     proving_version = utils.require_env("PROVING_VERSION")
     protocol_version = utils.require_env("PROTOCOL_VERSION")
@@ -269,20 +260,62 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Tooling check
     # ------------------------------------------------------------------ #
-    ctx.require_cmds(
+    # Protocol versions >= v31.0 require cast/forge 1.3.5
+    if utils.parse_protocol_version(protocol_version) >= (31, 0):
+        cast_forge_version = "==1.3.5"
+    else:
+        cast_forge_version = "==0.0.4"
+    utils.require_cmds(
         {
             "yarn": ">=1.22",
             "anvil": "==1.5.1",
-            "cast": "==1.3.5",
-            "forge": "==1.3.5",
+            "cast": cast_forge_version,
+            "forge": cast_forge_version,
             "cargo": ">=1.89",
         }
     )
 
+    # TODO: remove this later, needs only for v31 for now
     # ------------------------------------------------------------------ #
-    # Build L1 contracts
+    # Build contracts for zkstack (temporary)
     # ------------------------------------------------------------------ #
-    with ctx.section("Build L1 contracts", expected=120):
+    if protocol_version.startswith("v31"):
+        with ctx.section("Build contracts in zkstack", expected=120):
+            ctx.sh(
+                """
+                yarn install
+                """,
+                cwd=zkstack_era_contracts_path,
+            )
+            ctx.sh(
+                """
+                yarn build:foundry
+                """,
+                cwd=zkstack_era_contracts_path / "da-contracts",
+            )
+            ctx.sh(
+                """
+                yarn build:foundry
+                """,
+                cwd=zkstack_era_contracts_path / "l1-contracts",
+            )
+
+    # ------------------------------------------------------------------ #
+    # Build contracts
+    # ------------------------------------------------------------------ #
+    with ctx.section("Build contracts", expected=120):
+        ctx.sh(
+            """
+            yarn install
+            """,
+            cwd=era_contracts_path,
+        )
+        ctx.sh(
+            """
+            yarn build:foundry
+            """,
+            cwd=era_contracts_path / "da-contracts",
+        )
         ctx.sh(
             """
             yarn build:foundry
@@ -325,13 +358,19 @@ def script(ctx: ScriptCtx) -> None:
     if protocol_version == "v30.2":
         init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
     else:
-        init_ecosystem(ctx, "multi_chain", ["6565", "6566", GATEWAY_CHAIN_ID])
+        init_ecosystem(ctx, "multi_chain", ["6565", "6566", constants.GATEWAY_CHAIN_ID])
 
     # ------------------------------------------------------------------ #
     # Update VK hash in prover config
     # ------------------------------------------------------------------ #
     edit_server.update_vk_hash(
         ctx.repo_dir / "lib" / "types" / "src" / "protocol" / "proving_version.rs",
+        era_contracts_path
+        / "l1-contracts"
+        / "contracts"
+        / "state-transition"
+        / "verifiers"
+        / "ZKsyncOSVerifierPlonk.sol",
         proving_version,
     )
 

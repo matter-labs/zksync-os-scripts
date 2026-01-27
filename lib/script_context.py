@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import contextlib
 import logging
 import os
@@ -11,11 +9,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Mapping, Optional, Union
-from shutil import which
-from packaging.specifiers import SpecifierSet
-from . import utils
-from .log import get_console
+from lib.log import get_console
+from lib import constants
 
+
+logger = logging.getLogger(constants.LOGGER_NAME)
 _console = get_console()
 
 
@@ -31,7 +29,6 @@ class ScriptCtx:
     verbose: bool
 
     # Logging
-    log_dir: Optional[Path]
     log_file: Optional[Path]
     logger: logging.Logger
 
@@ -93,53 +90,8 @@ class ScriptCtx:
             self.logger.error(msg)
 
     # ------------------------------------------------------------------ #
-    # Paths / tmp / env
+    # Paths / env
     # ------------------------------------------------------------------ #
-
-    @property
-    def tmp_dir(self) -> Path:
-        """
-        Base temporary directory inside the workspace.
-
-        Example:
-            ctx.tmp_dir / "final_program_proof.json"
-        """
-        base = self.workspace / ".tmp"
-        base.mkdir(parents=True, exist_ok=True)
-        return base
-
-    def path_from_env(self, env_var: str, default_subdir: str | Path) -> Path:
-        """
-        Return a path resolved from an environment variable or a default inside the workspace.
-
-        Example:
-            ctx.path_from_env("MY_APP_PATH", "my-app")
-        """
-        val = os.environ.get(env_var)
-        if val:
-            return Path(val).resolve()
-        return (self.workspace / default_subdir).resolve()
-
-    # ------------------------------------------------------------------ #
-    # Shell / commands / files
-    # ------------------------------------------------------------------ #
-    def require_cmds(self, tools: dict[str, str]) -> None:
-        missing = [t for t in tools if which(t) is None]
-        if missing:
-            self.logger.error(f"Missing required tools: {', '.join(missing)}")
-            raise SystemExit(1)
-
-        for tool, constraint in tools.items():
-            version = utils.get_cmd_version(tool)
-            spec = SpecifierSet(constraint)
-
-            if version not in spec:
-                self.logger.error(
-                    f"{tool} {version} does not satisfy required version {constraint}"
-                )
-                raise SystemExit(1)
-
-            self.logger.info(f"Found {tool} {version} ✔")
 
     def sh(
         self,
@@ -198,7 +150,7 @@ class ScriptCtx:
 
         rc = proc.wait()
         if rc != 0:
-            self.logger.error(f"command failed with exit code {rc}")
+            self.logger.error(f"command in {cwd_path} failed with exit code {rc}")
             self._tail_last_lines()
             raise subprocess.CalledProcessError(rc, argv)
 

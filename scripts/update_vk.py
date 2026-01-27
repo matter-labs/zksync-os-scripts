@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-from lib.ctx import ScriptCtx
+from lib.script_context import ScriptCtx
 from lib.entry import run_script
 import lib.utils as utils
-from lib.constants import ZKSYNC_OS_URL
+import lib.constants as constants
 
 
 def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Tooling check
     # ------------------------------------------------------------------ #
-    ctx.require_cmds(
+    utils.require_cmds(
         {
             "cargo": ">=1.89",
         }
@@ -19,20 +19,20 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Required environment
     # ------------------------------------------------------------------ #
-    zkos_wrapper_path = ctx.path_from_env("ZKOS_WRAPPER_PATH", "zkos-wrapper")
+    zkos_wrapper_path = utils.require_path("ZKOS_WRAPPER_PATH")
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
-    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", ZKSYNC_OS_URL)
+    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", constants.ZKSYNC_OS_URL)
 
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file
     # ------------------------------------------------------------------ #
     with ctx.section("Download CRS file", expected=30):
-        crs_url = (
-            "https://storage.googleapis.com/matterlabs-setup-keys-europe/"
-            "setup-keys/setup_2^24.key"
+        crs_path = ctx.workspace / "setup.key"
+        utils.download(
+            constants.CRS_FILE_URL,
+            crs_path,
+            checksum=constants.CRS_FILE_SHA256_CHECKSUM,
         )
-        crs_path = ctx.tmp_dir / "setup.key"
-        utils.download(crs_url, crs_path)
 
     # ------------------------------------------------------------------ #
     # Download ZKsync OS binary (multiblock_batch.bin) for given tag
@@ -40,23 +40,23 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Download ZKsync OS binary", expected=1):
         asset_name = "multiblock_batch.bin"
         asset_url = f"{zksync_os_url}/releases/download/{zksync_os_tag}/{asset_name}"
-        output_file = ctx.tmp_dir / asset_name
+        output_file = ctx.workspace / asset_name
         utils.download(asset_url, output_file)
 
     # ------------------------------------------------------------------ #
     # Generate SNARK VK using zkos-wrapper
     # ------------------------------------------------------------------ #
     with ctx.section("Generate SNARK VK", expected=430):
-        vk_path = ctx.tmp_dir / "snark_vk_expected.json"
+        vk_path = ctx.workspace / "snark_vk_expected.json"
         if vk_path.is_file():
             vk_path.unlink()
         ctx.sh(
             f"""
             cargo run --bin wrapper --release -- \
               generate-snark-vk
-              --input-binary {ctx.tmp_dir / "multiblock_batch.bin"}
-              --trusted-setup-file {ctx.tmp_dir / "setup.key"}
-              --output-dir {ctx.tmp_dir}
+              --input-binary {ctx.workspace / "multiblock_batch.bin"}
+              --trusted-setup-file {ctx.workspace / "setup.key"}
+              --output-dir {ctx.workspace}
             """,
             cwd=zkos_wrapper_path,
         )
@@ -73,7 +73,7 @@ def script(ctx: ScriptCtx) -> None:
             / "data"
             / "ZKsyncOS_plonk_scheduler_key.json"
         )
-        utils.cp(ctx.tmp_dir / "snark_vk_expected.json", target_vk_json)
+        utils.cp(ctx.workspace / "snark_vk_expected.json", target_vk_json)
 
         # Generate verifier contracts
         ctx.sh(
