@@ -1,5 +1,7 @@
 # zksync-os-scripts
 
+[![Logo](.github/assets/zksync-os-logo.png)](https://zksync.io/)
+
 Operational scripts for ZKsync OS protocol upgrades.
 
 This repository contains a collection of Python utilities used to safely and reproducibly perform ZKsync OS upgrades, including:
@@ -111,8 +113,6 @@ Usage:
 REPO_DIR=/path/to/zksync-os-server \
 ERA_CONTRACTS_PATH=/path/to/era-contracts \
 ZKSYNC_ERA_PATH=/path/to/zksync-era \
-ZKSYNC_OS_EXECUTION_VERSION=<execution_version> \
-PROVING_VERSION=<proving_version> \
 PROTOCOL_VERSION=<protocol_version> \
     uv run -m scripts.update_server
 ```

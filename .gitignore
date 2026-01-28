@@ -10,3 +10,4 @@ repos/
 .protoctl-*/
 node_modules/
 interop-relayer/interop_state.json
+.ruff_cache/

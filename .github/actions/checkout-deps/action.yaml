@@ -32,12 +32,12 @@ inputs:
     type: string
     description: 'Version of era-contracts to checkout.'
     required: false
-    default: 'draft-v31'
+    default: 'draft-v31-with-zksync-os'
   zksync-os-server-version:
     type: string
     description: 'Version of zksync-os-server to checkout.'
     required: false
-    default: 'sb/gw-support-for-zksync-os'
+    default: 'main'
   zksync-airbender-prover-version:
     type: string
     description: 'Version of zksync-airbender-prover to checkout.'
