@@ -9,3 +9,8 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rich>=14.2.0",
 ]
+
+[dependency-groups]
+dev = [
+    "licensecheck>=2025.1.0",
+]

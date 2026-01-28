@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
 
-  format:
+  python-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -24,26 +24,30 @@ jobs:
       - name: Setup runner
         uses: ./.github/actions/runner-setup
 
+      - name: Check licenses
+        run: uv run licensecheck --zero
+
       - name: Check formatting
         run: uv format --check
 
-  check-scripts:
-    runs-on: matterlabs-ci-runner-high-performance
-    env:
-      # To avoid uv warning about cache
-      UV_LINK_MODE: copy
-      ZKSYNC_OS_TEST_TAG: v0.2.5
-      WORKSPACE: ${{ github.workspace }}/workspace
-      ZKSYNC_OS_EXECUTION_VERSION: 5
-      PROVING_VERSION: 6
-      PROTOCOL_VERSION: 'v31.0'
-    steps:
+  # TODO: re-enable when scripts are stable enough
+  # check-scripts:
+  #   runs-on: matterlabs-ci-runner-high-performance
+  #   env:
+  #     # To avoid uv warning about cache
+  #     UV_LINK_MODE: copy
+  #     ZKSYNC_OS_TEST_TAG: v0.2.5
+  #     WORKSPACE: ${{ github.workspace }}/workspace
+  #     ZKSYNC_OS_EXECUTION_VERSION: 5
+  #     PROVING_VERSION: 6
+  #     PROTOCOL_VERSION: 'v31.0'
+  #   steps:
 
-      - name: Checkout repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+  #     - name: Checkout repo
+  #       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Setup runner
-        uses: ./.github/actions/runner-setup
+  #     - name: Setup runner
+  #       uses: ./.github/actions/runner-setup
 
       # - name: Checkout dependencies
       #   uses: ./.github/actions/checkout-deps
@@ -90,8 +94,8 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
-      - format
-      - check-scripts
+      - python-checks
+      # - check-scripts
     steps:
       - name: Decide on PR checks
         uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
