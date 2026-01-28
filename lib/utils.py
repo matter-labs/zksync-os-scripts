@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import contextlib
 import re
 import shutil
@@ -195,10 +196,28 @@ def normalize_hex(value: str | int, length: int | None = None) -> str:
     raise TypeError(f"Expected str or int, got {type(value)}")
 
 
+def gzip_file(src: Path, *, dst: Path | None = None, keep_src: bool = False) -> Path:
+    """Gzip a file with optional compression level and option to keep the source file."""
+    if dst is None:
+        dst = src.with_suffix(f"{src.suffix}.gz")  # e.g. state.json -> state.json.gz
+    tmp = dst.with_suffix(f"{dst.suffix}.tmp")
+    # Stream-compress to a temp file, then atomically replace.
+    with src.open("rb") as fin, gzip.open(tmp, "wb") as fout:
+        shutil.copyfileobj(fin, fout)
+    tmp.replace(dst)
+    if not keep_src:
+        try:
+            src.unlink()
+        except FileNotFoundError:
+            pass
+    return dst
+
+
 @contextlib.contextmanager
 def anvil_dump_state(
     *,
     l1_state_file: Path,
+    compress: bool = True,
 ):
     """
     Run Anvil (with --dump-state) for the duration of the block.
@@ -230,24 +249,28 @@ def anvil_dump_state(
     finally:
         pid = proc.pid
         if proc.poll() is not None:
-            print(f"Anvil already stopped (pid={pid})")
-            return
-
-        print(f"Stopping Anvil (pid={pid})")
-        try:
-            proc.terminate()
-        except Exception:
-            pass
-
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            print("Anvil still alive; sending SIGKILL")
+            logger.debug(f"Anvil already stopped (pid={pid})")
+        else:
+            logger.debug(f"Stopping Anvil (pid={pid})")
             try:
-                proc.kill()
+                proc.terminate()
             except Exception:
                 pass
-            _ = proc.wait(timeout=5)
+
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logger.debug("Anvil still alive; sending SIGKILL")
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                _ = proc.wait(timeout=5)
+
+        # Compress after anvil dumped the state file
+        if compress and l1_state_file.exists():
+            gz_path = gzip_file(l1_state_file, keep_src=False)
+            logger.info(f"Compressed state -> {gz_path}")
 
 
 def addresses_from_wallets_yaml(data: dict) -> set[str]:
