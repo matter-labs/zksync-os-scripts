@@ -32,7 +32,8 @@ inputs:
     type: string
     description: 'Version of era-contracts to checkout.'
     required: false
-    default: 'draft-v31-with-zksync-os'
+    default: 'aba-debug-ci-issue'
+    # default: 'draft-v31-with-zksync-os'
   zksync-os-server-version:
     type: string
     description: 'Version of zksync-os-server to checkout.'

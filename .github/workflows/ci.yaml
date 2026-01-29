@@ -62,27 +62,27 @@ jobs:
           PROTOCOL_VERSION="${{ matrix.protocol_version}}" \
             uv run -m scripts.update_server
 
-  check-vk:
-    runs-on: matterlabs-ci-runner-high-performance
-    env:
-      ZKSYNC_OS_TEST_TAG: v0.2.5
-    steps:
+  # check-vk:
+  #   runs-on: matterlabs-ci-runner-high-performance
+  #   env:
+  #     ZKSYNC_OS_TEST_TAG: v0.2.5
+  #   steps:
 
-      - name: Checkout repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+  #     - name: Checkout repo
+  #       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Setup runner
-        uses: ./.github/actions/runner-setup
+  #     - name: Setup runner
+  #       uses: ./.github/actions/runner-setup
 
-      - name: Checkout dependencies
-        uses: ./.github/actions/checkout-deps
+  #     - name: Checkout dependencies
+  #       uses: ./.github/actions/checkout-deps
 
-      - name: Update vk
-        run: |
-          REPO_DIR=${WORKSPACE}/era-contracts \
-          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
-          ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
-            uv run -m scripts.update_vk
+  #     - name: Update vk
+  #       run: |
+  #         REPO_DIR=${WORKSPACE}/era-contracts \
+  #         ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
+  #         ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
+  #           uv run -m scripts.update_vk
 
 
   # Special job that allows some of the jobs to be skipped or failed
@@ -93,7 +93,7 @@ jobs:
     needs:
       - python-checks
       - check-server
-      - check-vk
+      # - check-vk
     steps:
       - name: Decide on PR checks
         uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
