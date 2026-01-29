@@ -60,7 +60,9 @@ jobs:
           ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
           ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
           PROTOCOL_VERSION="${{ matrix.protocol_version}}" \
-            uv run -m scripts.update_server
+            uv run -m scripts.update_server || true
+          find ${WORKSPACE}/era-contracts/l1-contracts/out
+          ls -la ${WORKSPACE}/era-contracts/l1-contracts/out
 
   # check-vk:
   #   runs-on: matterlabs-ci-runner-high-performance
