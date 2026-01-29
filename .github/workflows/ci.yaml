@@ -54,15 +54,25 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
 
-      - name: Update server
+      - name: check contracts
         run: |
-          REPO_DIR=${WORKSPACE}/zksync-os-server \
-          ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
-          ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
-          PROTOCOL_VERSION="${{ matrix.protocol_version}}" \
-            uv run -m scripts.update_server || true
-          find ${WORKSPACE}/era-contracts/l1-contracts/out
+          cd ${WORKSPACE}/era-contracts
+          git status
+          cd l1-contracts
+          yarn install
+          yarn build:foundry
           ls -la ${WORKSPACE}/era-contracts/l1-contracts/out
+
+
+      # - name: Update server
+      #   run: |
+      #     REPO_DIR=${WORKSPACE}/zksync-os-server \
+      #     ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
+      #     ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
+      #     PROTOCOL_VERSION="${{ matrix.protocol_version}}" \
+      #       uv run -m scripts.update_server || true
+      #     find ${WORKSPACE}/era-contracts/l1-contracts/out
+      #     ls -la ${WORKSPACE}/era-contracts/l1-contracts/out
 
   # check-vk:
   #   runs-on: matterlabs-ci-runner-high-performance
