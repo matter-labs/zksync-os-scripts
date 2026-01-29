@@ -42,7 +42,7 @@ jobs:
       matrix:
         protocol_version:
           - "v30.2"
-          # - "v31.0"
+          - "v31.0"
     steps:
 
       - name: Checkout repo
@@ -51,7 +51,7 @@ jobs:
       - name: Setup runner
         uses: ./.github/actions/runner-setup
         with:
-          zksync_foundry_version: 'nightly-ae913af65381734ad46c044a9495b67310bc77c4'
+          zksync_foundry_version: ${{ matrix.protocol_version == 'v31.0' && 'nightly-ae913af65381734ad46c044a9495b67310bc77c4' || 'v0.1.5' }}
 
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
