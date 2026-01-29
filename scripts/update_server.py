@@ -370,9 +370,8 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     # Multi-chain setup
     # ------------------------------------------------------------------ #
-    # TODO: uncomment before merge for proper gateway support
+    # TODO: uncomment when gateway chain is supported in main server
     init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
-
     # if Version(protocol_version) == Version(PROTOCOL_VERSION_CURRENT):
     #     init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
 
