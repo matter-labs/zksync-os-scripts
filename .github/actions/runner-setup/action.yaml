@@ -126,9 +126,8 @@ runs:
         tar zxf foundry_nightly_linux_amd64.tar.gz -C ./${INSTALL_DIR}
         chmod +x ./${INSTALL_DIR}/forge ./${INSTALL_DIR}/cast
         echo "${PWD}/${INSTALL_DIR}" >> "${GITHUB_PATH}"
-        # Remove forge and cast as they should be used from foundry-zksync
-        rm -f ./${INSTALL_DIR}/forge ./${INSTALL_DIR}/cast
-        ./${INSTALL_DIR}/anvil --version
+        ./${INSTALL_DIR}/forge --version
+        ./${INSTALL_DIR}/cast --version
         echo "Installed foundry version: ${VERSION}"
 
     - name: Install foundry
