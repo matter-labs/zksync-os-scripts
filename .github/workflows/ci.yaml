@@ -17,7 +17,7 @@ env:
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
-  VERBOSE: "false"
+  VERBOSE: "true"
 
 jobs:
 
@@ -46,11 +46,11 @@ jobs:
           - protocol_version: "v30.2"
             zksync_foundry_version: 'nightly-ae913af65381734ad46c044a9495b67310bc77c4'
             zksync_era_version: "zkstack-for-zksync-os"
-            era_contracts_version: "zkos-v0.30.2"
+            era_contracts_version: "zksync-os-stable"
             zksync_os_server_version: "main"
           - protocol_version: "v31.0"
             zksync_foundry_version: "v0.1.5"
-            zksync_era_version: "aba-return-with-slow"
+            zksync_era_version: "draft-v31"
             era_contracts_version: "draft-v31"
             zksync_os_server_version: "main"
     steps:
@@ -88,7 +88,7 @@ jobs:
         include:
           - protocol_version: "v30.2"
             zksync_foundry_version: "nightly-ae913af65381734ad46c044a9495b67310bc77c4"
-            era_contracts_version: "aba-fix-recompute-hashes-linux" # change to zksync-os-stable
+            era_contracts_version: "zksync-os-stable"
           - protocol_version: "v31.0"
             zksync_foundry_version: "v0.1.5"
             era_contracts_version: "draft-v31"
