@@ -99,8 +99,11 @@ def script(ctx: ScriptCtx) -> None:
     # Update test hashes
     # ------------------------------------------------------------------ #
     with ctx.section("Update test hashes", expected=120):
-        ctx.sh(f"bash -c {ctx.repo_dir}/recompute_hashes.sh")
-
+        ctx.sh(f"yarn --cwd {ctx.repo_dir / "da-contracts"} build:foundry")
+        ctx.sh(f"yarn --cwd {ctx.repo_dir / "l1-contracts"} build:foundry")
+        ctx.sh(f"yarn --cwd {ctx.repo_dir / "l2-contracts"} build:foundry")
+        ctx.sh(f"yarn --cwd {ctx.repo_dir / "system-contracts"} build:foundry")
+        ctx.sh(f"yarn calculate-hashes:fix")
 
 if __name__ == "__main__":
     run_script(script)

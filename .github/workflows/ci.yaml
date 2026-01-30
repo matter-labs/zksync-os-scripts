@@ -50,7 +50,7 @@ jobs:
             zksync_os_server_version: "main"
           - protocol_version: "v31.0"
             zksync_foundry_version: "v0.1.5"
-            zksync_era_version: "draft-v31"
+            zksync_era_version: "aba-return-with-slow"
             era_contracts_version: "draft-v31"
             zksync_os_server_version: "main"
     steps:
@@ -81,6 +81,7 @@ jobs:
 
   check-vk:
     runs-on: matterlabs-ci-runner-high-performance
+    name: VK update (${{ matrix.protocol_version }})
     strategy:
       fail-fast: false
       matrix:
