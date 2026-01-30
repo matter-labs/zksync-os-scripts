@@ -47,12 +47,12 @@ jobs:
             zksync_foundry_version: 'nightly-ae913af65381734ad46c044a9495b67310bc77c4'
             zksync_era_version: "zkstack-for-zksync-os"
             era_contracts_version: "zkos-v0.30.2"
-            zksync-os-server-version: 'main'
+            zksync_os_server_version: "main"
           - protocol_version: "v31.0"
-            zksync_foundry_version: 'v0.1.5'
+            zksync_foundry_version: "v0.1.5"
             zksync_era_version: "draft-v31"
             era_contracts_version: "draft-v31"
-            zksync-os-server-version: 'main'
+            zksync_os_server_version: "main"
     steps:
 
       - name: Checkout repo
@@ -66,9 +66,9 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          zksync-era-version: ${{ matrix.zksync_era_version }}
-          era-contracts-version: ${{ matrix.era_contracts_version }}
-          zksync-os-server-version: ${{ matrix.zksync-os-server-version }}
+          zksync_era_version: ${{ matrix.zksync_era_version }}
+          era_contracts_version: ${{ matrix.era_contracts_version }}
+          zksync_os_server_version: ${{ matrix.zksync_os_server_version }}
 
       - name: Update server
         run: |
@@ -85,8 +85,10 @@ jobs:
       matrix:
         include:
           - protocol_version: "v30.2"
+            zksync_foundry_version: "nightly-ae913af65381734ad46c044a9495b67310bc77c4"
             era_contracts_version: "zkos-v0.30.2"
           - protocol_version: "v31.0"
+            zksync_foundry_version: "v0.1.5"
             era_contracts_version: "draft-v31"
     env:
       ZKSYNC_OS_TEST_TAG: v0.2.5
@@ -97,12 +99,14 @@ jobs:
 
       - name: Setup runner
         uses: ./.github/actions/runner-setup
+        with:
+          zksync_foundry_version: ${{ matrix.zksync_foundry_version }}
 
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          zkos-wrapper-version: 'main'
-          era-contracts-version: ${{ matrix.era_contracts_version }}
+          zkos_wrapper_version: "main"
+          era_contracts_version: ${{ matrix.era_contracts_version }}
 
       - name: Update vk
         run: |

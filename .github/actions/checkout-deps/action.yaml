@@ -3,32 +3,32 @@ name: 'Checkout dependencies'
 description: 'Checkout dependencies for testing the scripts.'
 
 inputs:
-  checkout-dir:
+  checkout_dir:
     type: string
     description: 'Directory to checkout dependencies into.'
     required: false
     default: 'workspace'
-  zksync-airbender-version:
+  zksync_airbender_version:
     type: string
     description: 'Version of zksync-airbender to checkout.'
     required: false
     default: ''
-  zkos-wrapper-version:
+  zkos_wrapper_version:
     type: string
     description: 'Version of zkos-wrapper to checkout.'
     required: false
     default: ''
-  zksync-era-version:
+  zksync_era_version:
     type: string
     description: 'Version of zksync-era to checkout.'
     required: false
     default: ''
-  era-contracts-version:
+  era_contracts_version:
     type: string
     description: 'Version of era-contracts to checkout.'
     required: false
     default: ''
-  zksync-os-server-version:
+  zksync_os_server_version:
     type: string
     description: 'Version of zksync-os-server to checkout.'
     required: false
@@ -44,39 +44,39 @@ runs:
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         repository: matter-labs/zkos-wrapper
-        path: ${{ inputs.checkout-dir }}/zkos-wrapper
-        ref: ${{ inputs.zkos-wrapper-version }}
+        path: ${{ inputs.checkout_dir }}/zkos-wrapper
+        ref: ${{ inputs.zkos_wrapper_version }}
 
     - name: Checkout zksync-airbender
-      if: ${{ inputs.zksync-airbender-version != '' }}
+      if: ${{ inputs.zksync_airbender_version != '' }}
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         repository: matter-labs/zksync-airbender
-        path: ${{ inputs.checkout-dir }}/zksync-airbender
-        ref: ${{ inputs.zksync-airbender-version }}
+        path: ${{ inputs.checkout_dir }}/zksync-airbender
+        ref: ${{ inputs.zksync_airbender_version }}
 
     - name: Checkout zksync-era
-      if: ${{ inputs.zksync-era-version != '' }}
+      if: ${{ inputs.zksync_era_version != '' }}
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         repository: matter-labs/zksync-era
-        path: ${{ inputs.checkout-dir }}/zksync-era
-        ref: ${{ inputs.zksync-era-version }}
+        path: ${{ inputs.checkout_dir }}/zksync-era
+        ref: ${{ inputs.zksync_era_version }}
         submodules: 'recursive'
 
     - name: Checkout era-contracts
-      if: ${{ inputs.era-contracts-version != '' }}
+      if: ${{ inputs.era_contracts_version != '' }}
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         repository: matter-labs/era-contracts
-        path: ${{ inputs.checkout-dir }}/era-contracts
-        ref: ${{ inputs.era-contracts-version }}
+        path: ${{ inputs.checkout_dir }}/era-contracts
+        ref: ${{ inputs.era_contracts_version }}
         submodules: 'recursive'
 
     - name: Checkout zksync-os-server
-      if: ${{ inputs.zksync-os-server-version != '' }}
+      if: ${{ inputs.zksync_os_server_version != '' }}
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         repository: matter-labs/zksync-os-server
-        path: ${{ inputs.checkout-dir }}/zksync-os-server
-        ref: ${{ inputs.zksync-os-server-version }}
+        path: ${{ inputs.checkout_dir }}/zksync-os-server
+        ref: ${{ inputs.zksync_os_server_version }}
