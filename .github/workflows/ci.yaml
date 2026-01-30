@@ -68,6 +68,7 @@ jobs:
         with:
           zksync-era-version: ${{ matrix.zksync_era_version }}
           era-contracts-version: ${{ matrix.era_contracts_version }}
+          zksync-os-server-version: ${{ matrix.zksync-os-server-version }}
 
       - name: Update server
         run: |
@@ -101,7 +102,7 @@ jobs:
         uses: ./.github/actions/checkout-deps
         with:
           zkos-wrapper-version: 'main'
-          era_contracts_version: ${{ matrix.era_contracts_version }}
+          era-contracts-version: ${{ matrix.era_contracts_version }}
 
       - name: Update vk
         run: |
