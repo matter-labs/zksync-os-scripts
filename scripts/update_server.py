@@ -58,34 +58,25 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
 
     # Fund each address
     ctx.logger.debug(f"Funding {len(all_addrs)} addresses with 10 ETH each...")
+    amount_10eth = hex(10 * 10 ** 18)
     for addr in sorted(all_addrs):
         ctx.sh(
-            f"""
-            cast send {addr}
-              --value 10ether
-              --private-key {config.ANVIL_RICH_PRIVATE_KEY}
-              --rpc-url {rpc_url}
-            """,
+            f"""cast rpc anvil_setBalance {addr} {amount_10eth} --rpc-url {rpc_url}""",
             print_command=False,
         )
 
     # Two large transfers between rich wallets
     ctx.logger.debug("Performing two large transfers between rich wallets...")
+    amount_9000eth = hex(9000 * 10 ** 18)
     ctx.sh(
         f"""
-        cast send 0xa61464658afeaf65cccaafd3a512b69a83b77618
-          --value 9000ether
-          --private-key 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
-          --rpc-url {rpc_url}
+        cast rpc anvil_setBalance 0xa61464658afeaf65cccaafd3a512b69a83b77618 {amount_9000eth} --rpc-url {rpc_url}
         """,
         print_command=False,
     )
     ctx.sh(
         f"""
-        cast send 0x36615cf349d7f6344891b1e7ca7c72883f5dc049
-          --value 9000ether
-          --private-key 0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97
-          --rpc-url {rpc_url}
+        cast rpc anvil_setBalance 0x36615cf349d7f6344891b1e7ca7c72883f5dc049 {amount_9000eth} --rpc-url {rpc_url}
         """,
         print_command=False,
     )
@@ -103,7 +94,9 @@ def init_ecosystem(
     zkstack_bin = zksync_era_path / "zkstack_cli" / "target" / "release" / "zkstack"
     ecosystems_dir = ctx.workspace / "ecosystems"
     ecosystem_dir = ctx.workspace / "ecosystems" / ecosystem_name
-    base = ctx.repo_dir / "local-chains" / protocol_version / ecosystem_name
+    protocol_base = ctx.repo_dir / "local-chains" / protocol_version
+    default_base = protocol_base / "default"
+    base = protocol_base / ecosystem_name
 
     with ctx.section(f"Initialize {ecosystem_name} ecosystem", expected=120):
         utils.clean_dir(ecosystem_dir)
@@ -164,9 +157,9 @@ def init_ecosystem(
     # Start Anvil
     # ------------------------------------------------------------------ #
     with ctx.section(
-        f"Generating zkos-l1-state.json for {ecosystem_name}", expected=250
+        f"Generating l1-state.json.gz for {ecosystem_name}", expected=250
     ):
-        l1_state_file = base / "zkos-l1-state.json"
+        l1_state_file = protocol_base / "l1-state.json.gz"
         with utils.anvil_dump_state(l1_state_file=l1_state_file):
             # ------------------------------------------------------------------ #
             # Fund accounts
@@ -202,16 +195,18 @@ def init_ecosystem(
                 chain_wallets_yaml = (
                     ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
                 )
-                chain_config_yaml = (
-                    base / f"chain_{chain}.yaml"
-                    if ecosystem_name == "multi_chain"
-                    else base / "config.yaml"
-                )
                 edit_server.update_chain_config_yaml(
-                    chain_config_yaml,
+                    base / f"chain_{chain}.yaml",
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
                 )
+                # If this is the first chain we also use it to update `default` config
+                if chain == "6565":
+                    edit_server.update_chain_config_yaml(
+                        default_base / "config.yaml",
+                        contracts_yaml=contracts_yaml,
+                        wallets_yaml=chain_wallets_yaml,
+                    )
                 name_suffix = f"_{chain}" if ecosystem_name == "multi_chain" else ""
                 wallets_out = base / f"wallets{name_suffix}.yaml"
                 contracts_out = base / f"contracts{name_suffix}.yaml"
@@ -228,7 +223,7 @@ def init_ecosystem(
                 )
                 ctx.sh(
                     f"""
-                    cargo run --release --package zksync_os_generate_deposit -- --bridgehub "{bridgehub_address}" --chain-id {chain}
+                    cargo run --release --package zksync_os_generate_deposit -- --bridgehub "{bridgehub_address}" --chain-id {chain} --amount 100
                     """
                 )
                 if chain == config.GATEWAY_CHAIN_ID:
@@ -356,16 +351,16 @@ def script(ctx: ScriptCtx) -> None:
         ctx.sh(
             f"""
             cargo run --
-              --output-file {ctx.repo_dir / "local-chains" / protocol_version / "default" / "genesis.json"}
+              --output-file {ctx.repo_dir / "local-chains" / protocol_version / "genesis.json"}
               --execution-version {execution_version}
             """,
             cwd=era_contracts_path / "tools" / "zksync-os-genesis-gen",
         )
 
-    # ------------------------------------------------------------------ #
-    # Single-chain setup
-    # ------------------------------------------------------------------ #
-    init_ecosystem(ctx, "default", ["6565"])
+    # # ------------------------------------------------------------------ #
+    # # Single-chain setup
+    # # ------------------------------------------------------------------ #
+    # init_ecosystem(ctx, "default", ["6565"])
 
     # ------------------------------------------------------------------ #
     # Multi-chain setup

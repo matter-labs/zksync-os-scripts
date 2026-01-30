@@ -29,7 +29,7 @@ PROTOCOL_TOOLCHAINS: dict[str, Toolchain] = {
         yarn_version="1.22",
         execution_version="5",
         proving_version="6",
-        anvil_version="1.5.1",
+        anvil_version="1.6.0+5bcdddc06abe5b0cd8e9bc1de8ddfb7202a95ed1",
         cast_forge_version="0.0.4",
         cargo_version="1.89.0",
     ),
@@ -37,7 +37,7 @@ PROTOCOL_TOOLCHAINS: dict[str, Toolchain] = {
         yarn_version="1.22",
         execution_version="5",  # TODO switch to 6 when supported
         proving_version="6",  # TODO switch to 7 when supported
-        anvil_version="1.5.1",
+        anvil_version="1.6.0+5bcdddc06abe5b0cd8e9bc1de8ddfb7202a95ed1",
         cast_forge_version="1.3.5",
         cargo_version="1.89.0",
     ),

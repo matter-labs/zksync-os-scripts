@@ -169,6 +169,7 @@ def extract_vk_hash(verifier_plonk_sol: Path) -> str:
 
 def get_cmd_version(cmd: str) -> Version:
     _VERSION_RE = re.compile(r"\d+\.\d+(\.\d+)?")
+    _SHA_RE = re.compile(r"[a-f0-9]{40}")
     result = subprocess.run(
         [cmd, "--version"],
         capture_output=True,
@@ -176,13 +177,17 @@ def get_cmd_version(cmd: str) -> Version:
         check=True,
     )
 
-    match = _VERSION_RE.search(result.stdout)
-    if not match:
+    version_match = _VERSION_RE.search(result.stdout)
+    if not version_match:
         raise RuntimeError(
             f"Could not parse version from `{cmd} --version`: {result.stdout}"
         )
 
-    return Version(match.group())
+    sha_match = _SHA_RE.search(result.stdout)
+    if sha_match:
+        return Version(version_match.group() + '+' + sha_match.group())
+    else:
+        return Version(version_match.group())
 
 
 def normalize_hex(value: str | int, length: int | None = None) -> str:
@@ -210,6 +215,8 @@ def anvil_dump_state(
     proc = subprocess.Popen(
         [
             "anvil",
+            "--preserve-historical-states",
+            "--disable-block-gas-limit",
             "--dump-state",
             str(l1_state_file),
         ],
