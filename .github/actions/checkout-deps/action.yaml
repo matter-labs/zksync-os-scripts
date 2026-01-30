@@ -40,7 +40,7 @@ runs:
   steps:
 
     - name: Checkout zkos-wrapper
-      if: ${{ inputs.zkos-wrapper-version != '' }}
+      if: ${{ inputs.zkos_wrapper_version != '' }}
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       with:
         repository: matter-labs/zkos-wrapper
