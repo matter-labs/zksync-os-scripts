@@ -16,7 +16,6 @@ concurrency:
 env:
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
-  WORKSPACE: "${{ github.workspace }}/workspace"
   VERBOSE: "false"
 
 jobs:
@@ -70,9 +69,9 @@ jobs:
 
       - name: Update server
         run: |
-          REPO_DIR=${WORKSPACE}/zksync-os-server \
-          ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
-          ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
+          REPO_DIR=zksync-os-server \
+          ERA_CONTRACTS_PATH=era-contracts \
+          ZKSYNC_ERA_PATH=zksync-era \
           PROTOCOL_VERSION="${{ matrix.protocol_version}}" \
             uv run -m scripts.update_server
 
@@ -95,8 +94,8 @@ jobs:
 
       - name: Update vk
         run: |
-          REPO_DIR=${WORKSPACE}/era-contracts \
-          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
+          REPO_DIR=era-contracts \
+          ZKOS_WRAPPER_PATH=zkos-wrapper \
           ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
             uv run -m scripts.update_vk
 
