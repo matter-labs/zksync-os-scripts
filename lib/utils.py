@@ -13,10 +13,10 @@ from shutil import which
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 import logging
-from lib import constants
+from lib import config
 
 
-logger = logging.getLogger(constants.LOGGER_NAME)
+logger = logging.getLogger(config.LOGGER_NAME)
 
 
 def require_env(name: str, default: str = None) -> str:
@@ -288,32 +288,3 @@ def replace_with_symlink(target: Path, source: Path) -> None:
     elif target.is_dir():
         shutil.rmtree(target)
     target.symlink_to(source, target_is_directory=source.is_dir())
-
-
-def parse_protocol_version(version: str) -> tuple[int, int]:
-    """
-    Parse a protocol version string like 'v31.0' into a (minor, patch) tuple.
-
-    Args:
-        version: Version string in format 'vX.Y' where X and Y are non-negative integers.
-
-    Returns:
-        Tuple of (minor, patch) integers.
-
-    Raises:
-        ValueError: If the version string is empty, malformed, or contains invalid values.
-    """
-    if not version or not isinstance(version, str):
-        raise ValueError(
-            f"Protocol version must be a non-empty string, got: {version!r}"
-        )
-
-    version = version.strip()
-    if not re.match(r"^v\d+\.\d+$", version):
-        raise ValueError(
-            f"Invalid protocol version format: '{version}'. Expected format: 'vX.Y' (e.g., 'v31.0')"
-        )
-
-    # Remove the 'v' prefix and split
-    minor_str, patch_str = version[1:].split(".")
-    return (int(minor_str), int(patch_str))
