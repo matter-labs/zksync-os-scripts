@@ -108,6 +108,8 @@ Updates ZKsync OS Server with the new genesis and state.
 - Update prover config VK hash.
 - Regenerate `contracts.json` used by the L1 watcher.
 
+> PLEASE NOTE: Before running this script, ensure that anvil is not running on 8545 port.
+
 Usage:
 ```bash
 REPO_DIR=/path/to/zksync-os-server \
