@@ -26,7 +26,7 @@ def init_ctx(required_env) -> ScriptCtx:
     verbose = _env_bool("VERBOSE")
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = workspace / ".protoctl-logs" / component
+    log_dir = workspace / ".logs" / component
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{script_name}-{ts}.log"
 
