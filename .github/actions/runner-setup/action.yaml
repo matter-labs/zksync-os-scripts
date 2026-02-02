@@ -120,7 +120,7 @@ runs:
         else
           NAME_SUFFIX="${VERSION}"
         fi
-        curl -LO ${FOUNDRY_ZKSYNC_URL}/${VERSION}/foundry_${NAME_SUFFIX}_linux_amd64.tar.gz
+        curl -LO ${FOUNDRY_ZKSYNC_URL}/foundry-zksync-${VERSION}/foundry_${NAME_SUFFIX}_linux_amd64.tar.gz
         tar zxf foundry_${NAME_SUFFIX}_linux_amd64.tar.gz -C ./${INSTALL_DIR}
         chmod +x ./${INSTALL_DIR}/forge ./${INSTALL_DIR}/cast
         echo "${PWD}/${INSTALL_DIR}" >> "${GITHUB_PATH}"
