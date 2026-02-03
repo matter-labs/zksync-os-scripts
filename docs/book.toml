@@ -3,7 +3,7 @@ authors = ["ZKsync team"]
 language = "en"
 multilingual = false
 src = "src"
-title = "ZKsync OS Upgrade Scripts"
+title = "ZKsync OS Scripts"
 
 [output.html]
 smart-punctuation = true

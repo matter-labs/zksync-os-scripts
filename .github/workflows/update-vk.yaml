@@ -1,4 +1,4 @@
-name: Update server
+name: Update verification key
 
 on:
   workflow_call:
@@ -7,11 +7,19 @@ on:
         description: '[mandatory] Protocol version to update.'
         type: string
         required: true
-      zksync_server_branch:
-        description: '[mandatory] Git branch of zksync-os-server to use.'
+      zksync_os_tag:
+        description: '[mandatory] Git tag of zksync-os to use for update.'
+        type: string
+        required: true
+        default: 'v0.2.5'
+      era_contracts_branch:
+        description: '[optional] Explicit Git branch of era-contracts to use. If not specified, derived from protocol version.'
         type: string
         required: false
-        default: 'main'
+      zkos_wrapper_version:
+        description: '[optional] Explicit version of zkos-wrapper to use. If not specified, derived from protocol version.'
+        type: string
+        required: false
   workflow_dispatch:
     inputs:
       protocol_version:
@@ -22,26 +30,27 @@ on:
         options:
           - 'v30.2'
           - 'v31.0'
-      zksync_server_branch:
-        description: '[mandatory] Git branch of zksync-os-server to use.'
+      zksync_os_tag:
+        description: '[mandatory] Git tag of zksync-os to use for update.'
         type: string
         required: true
+        default: 'v0.2.5'
+      era_contracts_branch:
+        description: '[optional] Explicit Git branch of era-contracts to use. If not specified, derived from protocol version.'
+        type: string
+        required: false
+      zkos_wrapper_version:
+        description: '[optional] Explicit version of zkos-wrapper to use. If not specified, derived from protocol version.'
+        type: string
+        required: false
         default: 'main'
-      zksync_era_version:
-        description: '[optional] Explicit version of zksync-era to use. If not specified, derived from protocol version.'
-        type: string
-        required: false
-      era_contracts_version:
-        description: '[optional] Explicit version of era-contracts to use. If not specified, derived from protocol version.'
-        type: string
-        required: false
       commit_changes:
         description: '[mandatory] Whether to commit the server changes back to the repository. If set to false, changes will not be committed, but a patch file will be saved as an artifact.'
         type: boolean
         required: false
         default: true
       open_pr:
-        description: '[optional] Whether to open a PR for the committed changes.'
+        description: '[optional] Whether to open a PR for the committed changes. If not, and commit_changes is true, changes will be pushed directly to the chosen branch.'
         type: boolean
         required: false
         default: true
@@ -51,7 +60,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: update-server-${{ github.ref }}-${{ inputs.protocol_version }}
+  group: update-vk-${{ github.ref }}-${{ inputs.protocol_version }}
   cancel-in-progress: true
 
 defaults:
@@ -61,11 +70,11 @@ defaults:
 env:
   # Versions mapping for v30
   ZKSYNC_FOUNDRY_VERSION_V30: "nightly-ae913af65381734ad46c044a9495b67310bc77c4"
-  ZKSYNC_ERA_VERSION_V30: "zkstack-for-zksync-os"
+  ZKOS_WRAPPER_VERSION_V30: "main"
   ERA_CONTRACTS_VERSION_V30: "zksync-os-stable"
   # Versions mapping for v31
   ZKSYNC_FOUNDRY_VERSION_V31: "v0.1.5"
-  ZKSYNC_ERA_VERSION_V31: "draft-v31"
+  ZKOS_WRAPPER_VERSION_V31: "main"
   ERA_CONTRACTS_VERSION_V31: "draft-v31"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
@@ -74,9 +83,9 @@ env:
 
 jobs:
 
-  check-server:
+  check-vk:
     runs-on: matterlabs-ci-runner-high-performance
-    name: Server update (${{ inputs.protocol_version }})
+    name: VK update (${{ inputs.protocol_version }})
     steps:
 
       - name: Define tools versions
@@ -84,12 +93,12 @@ jobs:
         run: |
           if [[ "${{ inputs.protocol_version }}" == "v30.2" ]]; then
             echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
-            echo "zksync_era_version=${{ inputs.zksync_era_version != '' && inputs.zksync_era_version || env.ZKSYNC_ERA_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
-            echo "era_contracts_version=${{ inputs.era_contracts_version != '' && inputs.era_contracts_version || env.ERA_CONTRACTS_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
+            echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
+            echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
           elif [[ "${{ inputs.protocol_version }}" == "v31.0" ]]; then
             echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
-            echo "zksync_era_version=${{ inputs.zksync_era_version != '' && inputs.zksync_era_version || env.ZKSYNC_ERA_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
-            echo "era_contracts_version=${{ inputs.era_contracts_version != '' && inputs.era_contracts_version || env.ERA_CONTRACTS_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
+            echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
+            echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
           else
             echo "Unsupported protocol version: ${{ inputs.protocol_version }}"
             exit 1
@@ -106,40 +115,38 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          zksync_era_version: ${{ steps.define-versions.outputs.zksync_era_version }}
+          zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
-          zksync_os_server_version: ${{ inputs.zksync_server_branch || 'main' }}
 
-      - name: Update server
-        timeout-minutes: 45 # If update takes more than 45 minutes, something is wrong
+      - name: Update vk
+        timeout-minutes: 30
         run: |
-          REPO_DIR=${WORKSPACE}/zksync-os-server \
-          ERA_CONTRACTS_PATH=${WORKSPACE}/era-contracts \
-          ZKSYNC_ERA_PATH=${WORKSPACE}/zksync-era \
-          PROTOCOL_VERSION="${{ inputs.protocol_version }}" \
-            uv run -m scripts.update_server
+          REPO_DIR=${WORKSPACE}/era-contracts \
+          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
+          ZKSYNC_OS_TAG="${{ inputs.zksync_os_tag }}" \
+            uv run -m scripts.update_vk
 
       - name: Save git patch
         if: success()
-        working-directory: ${{ env.WORKSPACE }}/zksync-os-server
-        run: git diff > "${GITHUB_WORKSPACE}/server_${{ inputs.zksync_server_branch }}_${{ inputs.protocol_version }}.patch"
+        working-directory: ${{ env.WORKSPACE }}/era-contracts
+        run: git diff > "${GITHUB_WORKSPACE}/era_contracts_${{ inputs.era_contracts_branch }}_${{ inputs.protocol_version }}.patch"
 
       - name: Upload git patch
         if: success()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
         with:
-          name: server-patch-${{ inputs.zksync_server_branch }}-${{ inputs.protocol_version }}
-          path: "server_${{ inputs.zksync_server_branch }}_${{ inputs.protocol_version }}.patch"
+          name: era-contracts-patch-${{ inputs.era_contracts_branch }}-${{ inputs.protocol_version }}
+          path: "era_contracts_${{ inputs.era_contracts_branch }}_${{ inputs.protocol_version }}.patch"
 
-      - name: Commit server changes
+      - name: Commit era-contracts changes
         if: success() && inputs.commit_changes
-        working-directory: ${{ env.WORKSPACE }}/zksync-os-server
+        working-directory: ${{ env.WORKSPACE }}/era-contracts
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          COMMIT_TITLE: "chore: update server for protocol ${{ inputs.protocol_version }}"
+          COMMIT_TITLE: "chore: update verification keys for protocol ${{ inputs.protocol_version }}"
         run: |
           if [[ "${{ inputs.open_pr }}" == "true" ]]; then
-            BRANCH="update-local-chains-$(date +%s)"
+            BRANCH="update-vk-$(date +%s)"
           fi
           if ! git diff --exit-code --quiet; then
             git config user.name "zksync-os-bot"
@@ -149,11 +156,11 @@ jobs:
             fi
             git add .
             git commit -m "${{ env.COMMIT_TITLE }}"
-            git push --set-upstream origin ${BRANCH:-${{ inputs.zksync_server_branch }}}
+            git push --set-upstream origin ${BRANCH:-${{ inputs.era_contracts_branch }}}
             if [[ "${{ inputs.open_pr }}" == "true" ]]; then
               gh pr create --title "${{ env.COMMIT_TITLE }}" \
-                --body "Automated local-chains update for protocol ${{ inputs.protocol_version }}" \
-                --base "${{ inputs.zksync_server_branch }}" \
+                --body "Automated verification keys update for protocol ${{ inputs.protocol_version }}" \
+                --base "${{ inputs.era_contracts_branch }}" \
                 --head "${BRANCH}"
             fi
           fi
@@ -162,5 +169,5 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
         with:
-          name: server-update-logs
+          name: era-contracts-update-logs
           path: ${{ github.workspace }}/workspace/.logs/*
