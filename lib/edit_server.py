@@ -114,10 +114,14 @@ def update_chain_config_yaml(
     )
 
     mapping = {
-        "blob_operator": "operator_commit_sk",
         "prove_operator": "operator_prove_sk",
         "execute_operator": "operator_execute_sk",
     }
+    # todo: also needs special case for `gateway/config.yaml`
+    if yaml_path.name == 'chain_506.yaml':
+        mapping["blob_operator"] = "operator_commit_sk"
+    else:
+        mapping["operator"] = "operator_commit_sk"
 
     wallets = utils.load_yaml(wallets_yaml)
 
