@@ -107,14 +107,7 @@ runs:
         cache-workspace-crates: true
         save-if: ${{ inputs.save_cache == 'true' }}
 
-    - name: Install Foundry-ZKsync
-      if: ${{ !contains(inputs.zksync_foundry_version, 'nightly') }}
-      uses: dutterbutter/foundry-zksync-toolchain@v2
-      with:
-        version: '${{ inputs.zksync_foundry_version }}'
-
     - name: Install foundry-zksync
-      if: ${{ contains(inputs.zksync_foundry_version, 'nightly') }}
       shell: "bash -ex {0}"
       env:
         FOUNDRY_ZKSYNC_URL: "https://github.com/matter-labs/foundry-zksync/releases/download/"
