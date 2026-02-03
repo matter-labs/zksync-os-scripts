@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Python port of the zkos L1 state/genesis setup script.
+Local state update script for zksync-os-server.
 
 Steps:
 - Check env + tooling
@@ -8,9 +8,9 @@ Steps:
 - Build era-contracts L1, generate genesis.json
 - Initialize ecosystem (zksync-os mode)
 - Start Anvil, fund accounts, deploy L1 contracts
-- Extract bridgehub + operator keys, update config_constants.rs
-- Generate deposit tx
-- Stop Anvil
+- Extract bridgehub + operator keys
+- Generate L1 -> L2 deposit tx
+- Stop Anvil and dump the new zkos-l1-state.json
 """
 
 from pathlib import Path
@@ -23,7 +23,6 @@ from lib import edit_server
 from lib import config
 from lib.protocol_version import (
     PROTOCOL_TOOLCHAINS,
-    PROTOCOL_VERSION_CURRENT,
     PROTOCOL_VERSION_NEXT,
 )
 

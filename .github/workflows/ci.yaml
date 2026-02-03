@@ -21,6 +21,7 @@ env:
 
 jobs:
 
+  # General python checks
   python-checks:
     runs-on: ubuntu-latest
     steps:
@@ -37,6 +38,7 @@ jobs:
         run: uv format --check
 
 
+  # Check server update script
   check-server:
     uses: ./.github/workflows/update-server.yaml
     strategy:
@@ -53,44 +55,21 @@ jobs:
     secrets: inherit
 
 
+  # Check verification keys update script
   check-vk:
-    runs-on: matterlabs-ci-runner-high-performance
-    name: VK update (${{ matrix.protocol_version }})
+    uses: ./.github/workflows/update-vk.yaml
     strategy:
       fail-fast: false
       matrix:
         include:
           - protocol_version: "v30.2"
-            zksync_foundry_version: "nightly-ae913af65381734ad46c044a9495b67310bc77c4"
-            era_contracts_version: "zksync-os-stable"
+            zksync_os_tag: "v0.2.5"
           - protocol_version: "v31.0"
-            zksync_foundry_version: "v0.1.5"
-            era_contracts_version: "draft-v31"
-    env:
-      ZKSYNC_OS_TEST_TAG: v0.2.5
-    steps:
-
-      - name: Checkout repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - name: Setup runner
-        uses: ./.github/actions/runner-setup
-        with:
-          zksync_foundry_version: ${{ matrix.zksync_foundry_version }}
-
-      - name: Checkout dependencies
-        uses: ./.github/actions/checkout-deps
-        with:
-          zkos_wrapper_version: "main"
-          era_contracts_version: ${{ matrix.era_contracts_version }}
-
-      - name: Update vk
-        timeout-minutes: 30
-        run: |
-          REPO_DIR=${WORKSPACE}/era-contracts \
-          ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
-          ZKSYNC_OS_TAG="${ZKSYNC_OS_TEST_TAG}" \
-            uv run -m scripts.update_vk
+            zksync_os_tag: "v0.2.5"
+    with:
+      protocol_version: "${{ matrix.protocol_version }}"
+      zksync_os_tag: "${{ matrix.zksync_os_tag }}"
+    secrets: inherit
 
 
   # Special job that allows some of the jobs to be skipped or failed

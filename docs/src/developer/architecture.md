@@ -1,0 +1,3 @@
+# Scripts architecture
+
+TBD
