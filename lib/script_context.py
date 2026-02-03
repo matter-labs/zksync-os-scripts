@@ -100,6 +100,7 @@ class ScriptCtx:
         cwd: Optional[Path | str] = None,
         env: Optional[Mapping[str, str]] = None,
         print_command: Optional[bool] = True,
+        verbose: Optional[bool] = False,
     ) -> None:
         """
         Run a command safely.
@@ -132,7 +133,7 @@ class ScriptCtx:
             merged_env.update(env)
 
         # Stream output
-        level = logging.INFO if self.verbose else logging.DEBUG
+        level = logging.INFO if self.verbose or verbose else logging.DEBUG
         try:
             proc = subprocess.Popen(
                 argv,
