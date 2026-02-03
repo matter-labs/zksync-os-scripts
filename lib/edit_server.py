@@ -117,8 +117,7 @@ def update_chain_config_yaml(
         "prove_operator": "operator_prove_sk",
         "execute_operator": "operator_execute_sk",
     }
-    # todo: also needs special case for `gateway/config.yaml`
-    if yaml_path.name == 'chain_506.yaml':
+    if yaml_path.name == "chain_506.yaml" or "gateway" in str(yaml_path):
         mapping["blob_operator"] = "operator_commit_sk"
     else:
         mapping["operator"] = "operator_commit_sk"

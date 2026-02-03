@@ -256,6 +256,68 @@ def anvil_dump_state(
                 pass
             _ = proc.wait(timeout=5)
 
+@contextlib.contextmanager
+def gateway(
+    *,
+    repo_path: Path,
+    db_path: Path,
+):
+    """
+    Run Gateway
+
+    Usage:
+        with ctx.gateway(repo_path=server_repo_path, db_path=gateway_db_path):
+            ... do stuff while Gateway is running ...
+    """
+    new_env = os.environ.copy()
+    new_env["GENERAL_ROCKS_DB_PATH"] = str(db_path)
+    proc = subprocess.Popen(
+        [
+            "cargo",
+            "run",
+            "--release",
+            "--",
+            "--config",
+            "./local-chains/v31.0/gateway/config.yaml",
+        ],
+        cwd=repo_path,
+        env=new_env,
+        stdout=subprocess.DEVNULL,
+        # stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    time.sleep(15)
+
+    if proc.poll() not in (None, 0):
+        raise SystemExit(
+            f"Failed to start Gateway (exit {proc.returncode}); "
+            f"DB path: {db_path}"
+        )
+
+    try:
+        yield proc
+    finally:
+        pid = proc.pid
+        if proc.poll() is not None:
+            print(f"Gateway already stopped (pid={pid})")
+            return
+
+        print(f"Stopping Gateway (pid={pid})")
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            print("Gateway still alive; sending SIGKILL")
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            _ = proc.wait(timeout=5)
+
 
 def addresses_from_wallets_yaml(data: dict) -> set[str]:
     """

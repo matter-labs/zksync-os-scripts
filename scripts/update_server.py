@@ -95,6 +95,7 @@ def init_ecosystem(
     ecosystems_dir = ctx.workspace / "ecosystems"
     ecosystem_dir = ctx.workspace / "ecosystems" / ecosystem_name
     protocol_base = ctx.repo_dir / "local-chains" / protocol_version
+    gateway_db = ctx.workspace / "gateway-db"
     default_base = protocol_base / "default"
     gateway_base = protocol_base / "gateway"
     base = protocol_base / ecosystem_name
@@ -332,6 +333,40 @@ def init_ecosystem(
                     #         """,
                     #     cwd=ecosystem_dir,
                     # )
+            ctx.sh(f"cargo build --release", cwd=ctx.repo_dir)
+            utils.clean_dir(gateway_db)
+            utils.remove_dir(ctx.workspace / "gateway-state.tar.gz")
+            with utils.gateway(repo_path=ctx.repo_dir, db_path=gateway_db):
+                for chain in chains:
+                    if chain == config.GATEWAY_CHAIN_ID:
+                        continue
+                    ctx.sh(
+                        f"""
+                            {zkstack_bin}
+                            chain gateway migrate-to-gateway
+                            --chain {chain}
+                            --gateway-chain-name {config.GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                            --gateway-rpc-url http://localhost:3052
+                        """,
+                        cwd=ecosystem_dir,
+                        verbose=True,
+                    )
+                    ctx.sh(
+                        f"""
+                            {zkstack_bin}
+                            chain gateway finalize-chain-migration-to-gateway
+                            --chain {chain}
+                            --gateway-chain-name {config.GATEWAY_CHAIN_ID}
+                            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                            --gateway-rpc-url http://localhost:3052
+                            --deploy-paymaster=false
+                        """,
+                        cwd=ecosystem_dir,
+                        verbose=True,
+                    )
+            ctx.sh(f"tar czvf gateway-state.tar.gz -C ./gateway-db .", cwd=ctx.workspace)
+            utils.cp(ctx.workspace / "gateway-state.tar.gz", protocol_base / "gateway-state.tar.gz")
 
 
 # ---------------------------------------------------------------------------
@@ -423,7 +458,7 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Build zkstack CLI", expected=100):
         ctx.sh(
             """
-            cargo build --bin zkstack
+            cargo build --release --bin zkstack
             """,
             cwd=zksync_era_path / "zkstack_cli",
         )
