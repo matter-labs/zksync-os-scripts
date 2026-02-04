@@ -115,6 +115,7 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
+          github_token: ${{ secrets.RELEASE_TOKEN }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
 

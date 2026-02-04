@@ -106,6 +106,7 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
+          github_token: ${{ secrets.RELEASE_TOKEN }}
           zksync_era_version: ${{ steps.define-versions.outputs.zksync_era_version }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
           zksync_os_server_version: ${{ inputs.zksync_server_branch || 'main' }}
