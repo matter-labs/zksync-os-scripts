@@ -46,9 +46,9 @@ jobs:
       matrix:
         include:
           - protocol_version: "v30.2"
-            zksync_server_branch: "di/compressed-state"
+            zksync_server_branch: "main"
           - protocol_version: "v31.0"
-            zksync_server_branch: "di/compressed-state"
+            zksync_server_branch: "main"
     with:
       protocol_version: "${{ matrix.protocol_version }}"
       zksync_server_branch: "${{ matrix.zksync_server_branch }}"

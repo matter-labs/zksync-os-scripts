@@ -130,14 +130,14 @@ jobs:
       - name: Save git patch
         if: success()
         working-directory: ${{ env.WORKSPACE }}/era-contracts
-        run: git diff > "${GITHUB_WORKSPACE}/era_contracts_${{ inputs.era_contracts_branch }}_${{ inputs.protocol_version }}.patch"
+        run: git diff > "${GITHUB_WORKSPACE}/era_contracts_${{ inputs.protocol_version }}.patch"
 
       - name: Upload git patch
         if: success()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
         with:
-          name: era-contracts-patch-${{ inputs.era_contracts_branch }}-${{ inputs.protocol_version }}
-          path: "era_contracts_${{ inputs.era_contracts_branch }}_${{ inputs.protocol_version }}.patch"
+          name: era-contracts-patch-${{ inputs.protocol_version }}
+          path: "era_contracts_${{ inputs.protocol_version }}.patch"
 
       - name: Commit era-contracts changes
         if: success() && inputs.commit_changes

@@ -123,14 +123,14 @@ jobs:
       - name: Save git patch
         if: success()
         working-directory: ${{ env.WORKSPACE }}/zksync-os-server
-        run: git diff > "${GITHUB_WORKSPACE}/server_${{ inputs.zksync_server_branch }}_${{ inputs.protocol_version }}.patch"
+        run: git diff > "${GITHUB_WORKSPACE}/server_${{ inputs.protocol_version }}.patch"
 
       - name: Upload git patch
         if: success()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
         with:
-          name: server-patch-${{ inputs.zksync_server_branch }}-${{ inputs.protocol_version }}
-          path: "server_${{ inputs.zksync_server_branch }}_${{ inputs.protocol_version }}.patch"
+          name: server-patch-${{ inputs.protocol_version }}
+          path: "server_${{ inputs.protocol_version }}.patch"
 
       - name: Commit server changes
         if: success() && inputs.commit_changes
