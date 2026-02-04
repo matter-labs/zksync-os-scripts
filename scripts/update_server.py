@@ -34,8 +34,8 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
     """
     Approximate port of the bash funding logic:
     - Find all wallets.yaml
-    - For each, extract addresses and send 10 ETH
-    - Then two large transfers between rich wallets
+    - For each, extract addresses and send 100 ETH
+    - Then fund two (hardcoded) rich wallets with 9000 ETH each
     """
 
     if not ecosystem_dir.is_dir():
@@ -56,36 +56,23 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
     rpc_url: str = config.ANVIL_DEFAULT_URL
 
     # Fund each address
-    ctx.logger.debug(f"Funding {len(all_addrs)} addresses with 10 ETH each...")
+    ctx.logger.debug(f"Funding {len(all_addrs)} addresses with 100 ETH each...")
+    amount_100eth = hex(100 * 10 ** 18)
     for addr in sorted(all_addrs):
         ctx.sh(
-            f"""
-            cast send {addr}
-              --value 10ether
-              --private-key {config.ANVIL_RICH_PRIVATE_KEY}
-              --rpc-url {rpc_url}
-            """,
+            f"cast rpc anvil_setBalance {addr} {amount_100eth} --rpc-url {rpc_url}",
             print_command=False,
         )
 
     # Two large transfers between rich wallets
-    ctx.logger.debug("Performing two large transfers between rich wallets...")
+    ctx.logger.debug("Funding two rich wallets with 9000 ETH each...")
+    amount_9000eth = hex(9000 * 10 ** 18)
     ctx.sh(
-        f"""
-        cast send 0xa61464658afeaf65cccaafd3a512b69a83b77618
-          --value 9000ether
-          --private-key 0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
-          --rpc-url {rpc_url}
-        """,
+        f"cast rpc anvil_setBalance 0xa61464658afeaf65cccaafd3a512b69a83b77618 {amount_9000eth} --rpc-url {rpc_url}",
         print_command=False,
     )
     ctx.sh(
-        f"""
-        cast send 0x36615cf349d7f6344891b1e7ca7c72883f5dc049
-          --value 9000ether
-          --private-key 0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97
-          --rpc-url {rpc_url}
-        """,
+        f"cast rpc anvil_setBalance 0x36615cf349d7f6344891b1e7ca7c72883f5dc049 {amount_9000eth} --rpc-url {rpc_url}",
         print_command=False,
     )
 
