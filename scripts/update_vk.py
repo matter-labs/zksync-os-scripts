@@ -3,7 +3,7 @@
 from lib.script_context import ScriptCtx
 from lib.entry import run_script
 import lib.utils as utils
-import lib.constants as constants
+import lib.config as config
 
 
 def script(ctx: ScriptCtx) -> None:
@@ -21,7 +21,7 @@ def script(ctx: ScriptCtx) -> None:
     # ------------------------------------------------------------------ #
     zkos_wrapper_path = utils.require_path("ZKOS_WRAPPER_PATH")
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
-    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", constants.ZKSYNC_OS_URL)
+    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", config.ZKSYNC_OS_URL)
 
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file
@@ -29,9 +29,9 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Download CRS file", expected=30):
         crs_path = ctx.workspace / "setup.key"
         utils.download(
-            constants.CRS_FILE_URL,
+            config.CRS_FILE_URL,
             crs_path,
-            checksum=constants.CRS_FILE_SHA256_CHECKSUM,
+            checksum=config.CRS_FILE_SHA256_CHECKSUM,
         )
 
     # ------------------------------------------------------------------ #

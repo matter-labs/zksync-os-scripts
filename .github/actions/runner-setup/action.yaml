@@ -107,12 +107,27 @@ runs:
         cache-workspace-crates: true
         save-if: ${{ inputs.save_cache == 'true' }}
 
-    - name: Install Foundry-ZKsync
-      uses: dutterbutter/foundry-zksync-toolchain@v1
-      # version should correspond to
-      # https://github.com/matter-labs/era-contracts/blob/draft-v31/recompute_hashes.sh#L7
-      with:
-        version: '${{ inputs.zksync_foundry_version }}'
+    - name: Install foundry-zksync
+      shell: "bash -ex {0}"
+      env:
+        FOUNDRY_ZKSYNC_URL: "https://github.com/matter-labs/foundry-zksync/releases/download/"
+        VERSION: "${{ inputs.zksync_foundry_version }}"
+        INSTALL_DIR: "foundry-zksync"
+      run: |
+        mkdir "${INSTALL_DIR}"
+        if [[ "${VERSION}" == nightly* ]]; then
+          NAME_SUFFIX="nightly"
+        else
+          NAME_SUFFIX="zksync_${VERSION}"
+          VERSION="foundry-zksync-${VERSION}"
+        fi
+        curl -LO ${FOUNDRY_ZKSYNC_URL}/${VERSION}/foundry_${NAME_SUFFIX}_linux_amd64.tar.gz
+        tar zxf foundry_${NAME_SUFFIX}_linux_amd64.tar.gz -C ./${INSTALL_DIR}
+        chmod +x ./${INSTALL_DIR}/forge ./${INSTALL_DIR}/cast
+        echo "${PWD}/${INSTALL_DIR}" >> "${GITHUB_PATH}"
+        FORGE_VERSION=$(./${INSTALL_DIR}/forge --version)
+        ./${INSTALL_DIR}/cast --version
+        echo "Installed foundry version: ${FORGE_VERSION}"
 
     - name: Install foundry
       shell: "bash -ex {0}"

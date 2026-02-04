@@ -17,7 +17,8 @@ def init_ctx(required_env) -> ScriptCtx:
     # Ensure required env vars exist (and are non-empty)
     for var in required_env:
         require_env(var)
-    default_workspace = Path(sys.argv[0]).parent / ".workspace"
+    # Use .parent.parent to go two levels up from script location to the repo root
+    default_workspace = Path(sys.argv[0]).parent.parent / ".workspace"
     workspace = Path(require_env("WORKSPACE", str(default_workspace))).resolve()
     repo_dir = Path(require_env("REPO_DIR")).resolve()
     script_name = Path(sys.argv[0]).stem
@@ -25,7 +26,7 @@ def init_ctx(required_env) -> ScriptCtx:
     verbose = _env_bool("VERBOSE")
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = workspace / ".protoctl-logs" / component
+    log_dir = workspace / ".logs" / component
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{script_name}-{ts}.log"
 

@@ -10,10 +10,10 @@ from pathlib import Path
 from time import perf_counter
 from typing import Iterable, Mapping, Optional, Union
 from lib.log import get_console
-from lib import constants
+from lib import config
 
 
-logger = logging.getLogger(constants.LOGGER_NAME)
+logger = logging.getLogger(config.LOGGER_NAME)
 _console = get_console()
 
 
@@ -99,6 +99,7 @@ class ScriptCtx:
         *,
         cwd: Optional[Path | str] = None,
         env: Optional[Mapping[str, str]] = None,
+        print_command: Optional[bool] = True,
     ) -> None:
         """
         Run a command safely.
@@ -122,7 +123,8 @@ class ScriptCtx:
             raise SystemExit(1)
 
         # Log command
-        self.logger.info("$ " + " ".join(argv))
+        if print_command:
+            self.logger.info("$ " + " ".join(argv))
 
         # Prepare env
         merged_env = os.environ.copy()

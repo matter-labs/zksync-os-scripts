@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import logging
-from lib import constants
+from lib import config
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -15,7 +15,7 @@ def get_console() -> Console:
 
 
 def setup_logger(log_file: Path | None, verbose: bool) -> logging.Logger:
-    logger = logging.getLogger(constants.LOGGER_NAME)
+    logger = logging.getLogger(config.LOGGER_NAME)
     logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
 
