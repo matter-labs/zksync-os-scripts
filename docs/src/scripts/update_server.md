@@ -62,7 +62,7 @@ which should be specified via corresponding path environment variables:
 | Repository    | Env Variable        | Protocol version → Branch Mapping |
 | :------------ | :------------------ | :----------------------- |
 | [zksync-os-server](https://github.com/matter-labs/zksync-os-server) | `REPO_DIR`          | **all versions** → `main` |
-| [era-contracts](https://github.com/matter-labs/era-contracts) | `ERA_CONTRACTS_PATH`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31` |
+| [era-contracts](https://github.com/matter-labs/era-contracts) | `ERA_CONTRACTS_PATH`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-with-zksync-os` |
 | [zksync-era](https://github.com/matter-labs/zksync-era)  | `ZKSYNC_ERA_PATH` | **v30.2** → `zkstack-for-zksync-os`<br />**v31.0** → `draft-v31`  |
 
 Also, make sure you have the right tooling versions:
