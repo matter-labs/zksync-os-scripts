@@ -250,7 +250,6 @@ def init_ecosystem(
                 contracts_yaml=contracts_yaml,
                 wallets_yaml=chain_wallets_yaml,
             )
-        ctx.sh(f"gzip -f {l1_state_file}")
 
 
 # ---------------------------------------------------------------------------

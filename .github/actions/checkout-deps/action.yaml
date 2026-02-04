@@ -33,19 +33,15 @@ inputs:
     description: 'Version of zksync-os-server to checkout.'
     required: false
     default: ''
-
+  github_token:
+    type: string
+    description: 'GitHub token for checkout action.'
+    required: false
+    default: ''
 
 runs:
   using: composite
   steps:
-
-    - name: Checkout zkos-wrapper
-      if: ${{ inputs.zkos_wrapper_version != '' }}
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      with:
-        repository: matter-labs/zkos-wrapper
-        path: ${{ inputs.checkout_dir }}/zkos-wrapper
-        ref: ${{ inputs.zkos_wrapper_version }}
 
     - name: Checkout zksync-airbender
       if: ${{ inputs.zksync_airbender_version != '' }}
@@ -72,6 +68,7 @@ runs:
         path: ${{ inputs.checkout_dir }}/era-contracts
         ref: ${{ inputs.era_contracts_version }}
         submodules: 'recursive'
+        token: ${{ inputs.github_token || github.token }}
 
     - name: Checkout zksync-os-server
       if: ${{ inputs.zksync_os_server_version != '' }}
@@ -80,3 +77,13 @@ runs:
         repository: matter-labs/zksync-os-server
         path: ${{ inputs.checkout_dir }}/zksync-os-server
         ref: ${{ inputs.zksync_os_server_version }}
+        token: ${{ inputs.github_token || github.token }}
+
+    - name: Checkout zkos-wrapper
+      if: ${{ inputs.zkos_wrapper_version != '' }}
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      with:
+        repository: matter-labs/zkos-wrapper
+        path: ${{ inputs.checkout_dir }}/zkos-wrapper
+        ref: ${{ inputs.zkos_wrapper_version }}
+        token: ${{ inputs.github_token || github.token }}
