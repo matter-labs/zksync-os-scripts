@@ -89,7 +89,9 @@ def init_ecosystem(
     zkstack_bin = zksync_era_path / "zkstack_cli" / "target" / "release" / "zkstack"
     ecosystems_dir = ctx.workspace / "ecosystems"
     ecosystem_dir = ctx.workspace / "ecosystems" / ecosystem_name
-    base = ctx.repo_dir / "local-chains" / protocol_version / ecosystem_name
+    protocol_base = ctx.repo_dir / "local-chains" / protocol_version
+    default_base = protocol_base / "default"
+    base = protocol_base / ecosystem_name
 
     with ctx.section(f"Initialize {ecosystem_name} ecosystem", expected=120):
         utils.clean_dir(ecosystem_dir)
@@ -150,9 +152,9 @@ def init_ecosystem(
     # Start Anvil
     # ------------------------------------------------------------------ #
     with ctx.section(
-        f"Generating zkos-l1-state.json for {ecosystem_name}", expected=250
+        f"Generating l1-state.json for {ecosystem_name}", expected=250
     ):
-        l1_state_file = base / "zkos-l1-state.json"
+        l1_state_file = protocol_base / "l1-state.json"
         with utils.anvil_dump_state(l1_state_file=l1_state_file):
             # ------------------------------------------------------------------ #
             # Fund accounts
@@ -188,13 +190,8 @@ def init_ecosystem(
                 chain_wallets_yaml = (
                     ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
                 )
-                chain_config_yaml = (
-                    base / f"chain_{chain}.yaml"
-                    if ecosystem_name == "multi_chain"
-                    else base / "config.yaml"
-                )
                 edit_server.update_chain_config_yaml(
-                    chain_config_yaml,
+                    base / f"chain_{chain}.yaml",
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
                 )
@@ -242,6 +239,14 @@ def init_ecosystem(
                             """,
                         cwd=ecosystem_dir,
                     )
+            # Update Default setup with information from the first chain in the list
+            # TODO: temporarily we are reusing one of the chains from Multichain setup for the Default setup
+            edit_server.update_chain_config_yaml(
+                default_base / "config.yaml",
+                contracts_yaml=ecosystem_dir / "chains" / chains[0] / "configs" / "contracts.yaml",
+                wallets_yaml=ecosystem_dir / "chains" / chains[0] / "configs" / "wallets.yaml",
+            )
+        ctx.sh(f"gzip -f {l1_state_file}")
 
 
 # ---------------------------------------------------------------------------
@@ -345,16 +350,18 @@ def script(ctx: ScriptCtx) -> None:
         ctx.sh(
             f"""
             cargo run --
-              --output-file {ctx.repo_dir / "local-chains" / protocol_version / "default" / "genesis.json"}
+              --output-file {ctx.repo_dir / "local-chains" / protocol_version / "genesis.json"}
               --execution-version {execution_version}
             """,
             cwd=era_contracts_path / "tools" / "zksync-os-genesis-gen",
         )
 
-    # ------------------------------------------------------------------ #
-    # Single-chain setup
-    # ------------------------------------------------------------------ #
-    init_ecosystem(ctx, "default", ["6565"])
+    # TODO: currently single-chain setup is disabled, instead it is a symlink to one of the chains from Multi-chain setup
+    #       this might change in the future
+    # # ------------------------------------------------------------------ #
+    # # Single-chain setup
+    # # ------------------------------------------------------------------ #
+    # init_ecosystem(ctx, "default", ["6565"])
 
     # ------------------------------------------------------------------ #
     # Multi-chain setup

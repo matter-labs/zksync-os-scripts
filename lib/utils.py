@@ -210,6 +210,11 @@ def anvil_dump_state(
     proc = subprocess.Popen(
         [
             "anvil",
+            # Ensures historical states are preserved when dumping on disk. With this `eth_call` on historical blocks
+            # will work as intended.
+            "--preserve-historical-states",
+            # Disables block gas limit to ensure forge does not have to be run with `--slow`.
+            "--disable-block-gas-limit",
             "--dump-state",
             str(l1_state_file),
         ],
