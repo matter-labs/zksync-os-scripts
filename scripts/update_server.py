@@ -214,7 +214,10 @@ def init_ecosystem(
                 )
                 ctx.sh(
                     f"""
-                    cargo run --release --package zksync_os_generate_deposit -- --bridgehub "{bridgehub_address}" --chain-id {chain}
+                    cargo run --release --package zksync_os_generate_deposit --
+                    --bridgehub "{bridgehub_address}"
+                    --chain-id {chain}
+                    --amount 100
                     """
                 )
                 if chain == config.GATEWAY_CHAIN_ID:
