@@ -65,8 +65,8 @@ env:
   ERA_CONTRACTS_VERSION_V30: "zksync-os-stable"
   # Versions mapping for v31
   ZKSYNC_FOUNDRY_VERSION_V31: "v0.1.5"
-  ZKSYNC_ERA_VERSION_V31: "draft-v31-with-zksync-os"
-  ERA_CONTRACTS_VERSION_V31: "draft-v31"
+  ZKSYNC_ERA_VERSION_V31: "draft-v31"
+  ERA_CONTRACTS_VERSION_V31: "draft-v31-with-zksync-os"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
