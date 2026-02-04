@@ -57,7 +57,7 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
 
     # Fund each address
     ctx.logger.debug(f"Funding {len(all_addrs)} addresses with 100 ETH each...")
-    amount_100eth = hex(100 * 10 ** 18)
+    amount_100eth = hex(100 * 10**18)
     for addr in sorted(all_addrs):
         ctx.sh(
             f"cast rpc anvil_setBalance {addr} {amount_100eth} --rpc-url {rpc_url}",
@@ -66,7 +66,7 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
 
     # Two large transfers between rich wallets
     ctx.logger.debug("Funding two rich wallets with 9000 ETH each...")
-    amount_9000eth = hex(9000 * 10 ** 18)
+    amount_9000eth = hex(9000 * 10**18)
     ctx.sh(
         f"cast rpc anvil_setBalance 0xa61464658afeaf65cccaafd3a512b69a83b77618 {amount_9000eth} --rpc-url {rpc_url}",
         print_command=False,
@@ -151,9 +151,7 @@ def init_ecosystem(
     # ------------------------------------------------------------------ #
     # Start Anvil
     # ------------------------------------------------------------------ #
-    with ctx.section(
-        f"Generating l1-state.json for {ecosystem_name}", expected=250
-    ):
+    with ctx.section(f"Generating l1-state.json for {ecosystem_name}", expected=250):
         l1_state_file = protocol_base / "l1-state.json"
         with utils.anvil_dump_state(l1_state_file=l1_state_file):
             # ------------------------------------------------------------------ #
@@ -241,10 +239,16 @@ def init_ecosystem(
                     )
             # Update Default setup with information from the first chain in the list
             # TODO: temporarily we are reusing one of the chains from Multichain setup for the Default setup
+            contracts_yaml = (
+                ecosystem_dir / "chains" / chains[0] / "configs" / "contracts.yaml"
+            )
+            chain_wallets_yaml = (
+                ecosystem_dir / "chains" / chains[0] / "configs" / "wallets.yaml"
+            )
             edit_server.update_chain_config_yaml(
                 default_base / "config.yaml",
-                contracts_yaml=ecosystem_dir / "chains" / chains[0] / "configs" / "contracts.yaml",
-                wallets_yaml=ecosystem_dir / "chains" / chains[0] / "configs" / "wallets.yaml",
+                contracts_yaml=contracts_yaml,
+                wallets_yaml=chain_wallets_yaml,
             )
         ctx.sh(f"gzip -f {l1_state_file}")
 
