@@ -1,0 +1,31 @@
+name: 'Slack notification for failed workflow'
+
+description: 'Send a Slack notification for failed workflow.'
+
+inputs:
+  webhook:
+    description: 'Slack Incoming Webhook URL'
+    required: true
+  context:
+    description: 'The context of the workflow run'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Slack failure notification
+      uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+      with:
+        webhook: ${{ inputs.webhook }}
+        webhook-type: incoming-webhook
+        payload: |
+          blocks:
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: "🚨 *${{ inputs.context }}* — `${{ github.repository }}` (`${{ github.ref_name }}`)"
+            - type: "context"
+              elements:
+                - type: "mrkdwn"
+                  text: "by `${{ github.actor }}` • <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|logs>"

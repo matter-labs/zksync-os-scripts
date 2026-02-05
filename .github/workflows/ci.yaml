@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+  # Run every day at 05:00 UTC
+  schedule:
+    - cron: "0 5 * * *"
 
 permissions:
   contents: read
@@ -70,6 +73,21 @@ jobs:
       protocol_version: "${{ matrix.protocol_version }}"
       zksync_os_tag: "${{ matrix.zksync_os_tag }}"
     secrets: inherit
+
+
+  # Report to Slack if any of the scheduled jobs failed
+  report-slack:
+    runs-on: ubuntu-latest
+    # if: failure() && github.event_name == 'schedule'
+    needs:
+      - check-vk
+      - check-server
+    steps:
+      - name: Slack notification
+        uses: matter-labs/zksync-ci-common/.github/actions/slack-notify-release@0a6a75b4b9710cc51af2207e81a0a4df98bc8a5b # v1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          context: "Possible incompatibility in protocol upgrade scripts."
 
 
   # Special job that allows some of the jobs to be skipped or failed

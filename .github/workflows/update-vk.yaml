@@ -157,11 +157,11 @@ jobs:
             fi
             git add .
             git commit -m "${{ env.COMMIT_TITLE }}"
-            git push --set-upstream origin ${BRANCH:-${{ inputs.era_contracts_branch }}}
+            git push --set-upstream origin ${BRANCH:-${{ steps.define-versions.outputs.era_contracts_version }}}
             if [[ "${{ inputs.open_pr }}" == "true" ]]; then
               gh pr create --title "${{ env.COMMIT_TITLE }}" \
                 --body "Automated verification keys update for protocol ${{ inputs.protocol_version }}" \
-                --base "${{ inputs.era_contracts_branch }}" \
+                --base "${{ steps.define-versions.outputs.era_contracts_version }}" \
                 --head "${BRANCH}"
             fi
           fi
