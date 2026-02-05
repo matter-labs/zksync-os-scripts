@@ -7,19 +7,6 @@ on:
         description: '[mandatory] Protocol version to update.'
         type: string
         required: true
-      zksync_os_tag:
-        description: '[mandatory] Git tag of zksync-os to use for update.'
-        type: string
-        required: true
-        default: 'v0.2.5'
-      era_contracts_branch:
-        description: '[optional] Explicit Git branch of era-contracts to use. If not specified, derived from protocol version.'
-        type: string
-        required: false
-      zkos_wrapper_version:
-        description: '[optional] Explicit version of zkos-wrapper to use. If not specified, derived from protocol version.'
-        type: string
-        required: false
   workflow_dispatch:
     inputs:
       protocol_version:
@@ -72,10 +59,12 @@ env:
   ZKSYNC_FOUNDRY_VERSION_V30: "nightly-ae913af65381734ad46c044a9495b67310bc77c4"
   ZKOS_WRAPPER_VERSION_V30: "main"
   ERA_CONTRACTS_VERSION_V30: "zksync-os-stable"
+  ZKSYNC_OS_TAG_V30: "v0.2.5"
   # Versions mapping for v31
   ZKSYNC_FOUNDRY_VERSION_V31: "v0.1.5"
   ZKOS_WRAPPER_VERSION_V31: "main"
   ERA_CONTRACTS_VERSION_V31: "draft-v31-with-zksync-os"
+  ZKSYNC_OS_TAG_V31: "v0.2.5"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
@@ -95,10 +84,12 @@ jobs:
             echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
             echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
             echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
+            echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V30 }}" >> "${GITHUB_OUTPUT}"
           elif [[ "${{ inputs.protocol_version }}" == "v31.0" ]]; then
             echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
             echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
             echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
+            echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V31 }}" >> "${GITHUB_OUTPUT}"
           else
             echo "Unsupported protocol version: ${{ inputs.protocol_version }}"
             exit 1
@@ -124,7 +115,7 @@ jobs:
         run: |
           REPO_DIR=${WORKSPACE}/era-contracts \
           ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
-          ZKSYNC_OS_TAG="${{ inputs.zksync_os_tag }}" \
+          ZKSYNC_OS_TAG="${{ steps.define-versions.outputs.zksync_os_tag }}" \
             uv run -m scripts.update_vk
 
       - name: Save git patch
@@ -157,11 +148,11 @@ jobs:
             fi
             git add .
             git commit -m "${{ env.COMMIT_TITLE }}"
-            git push --set-upstream origin ${BRANCH:-${{ inputs.era_contracts_branch }}}
+            git push --set-upstream origin ${BRANCH:-${{ steps.define-versions.outputs.era_contracts_version }}}
             if [[ "${{ inputs.open_pr }}" == "true" ]]; then
               gh pr create --title "${{ env.COMMIT_TITLE }}" \
                 --body "Automated verification keys update for protocol ${{ inputs.protocol_version }}" \
-                --base "${{ inputs.era_contracts_branch }}" \
+                --base "${{ steps.define-versions.outputs.era_contracts_version }}" \
                 --head "${BRANCH}"
             fi
           fi

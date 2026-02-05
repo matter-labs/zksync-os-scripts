@@ -74,12 +74,43 @@ Please, additionally check [protocol compatibility](../protocol-compatibility.md
 The script supports execution via GitHub Actions [`update-vk.yaml` workflow](https://github.com/matter-labs/zksync-os-scripts/blob/main/.github/workflows/update-vk.yaml)
 that can be triggered manually via GitHub Actions UI interface.
 
-To trigger the workflow, go to the
-[Actions](https://github.com/matter-labs/zksync-os-scripts/actions) tab,
-select `Update verification key` workflow from the left sidebar, and click the `Run workflow` button.
+```admonish title="Workflow link"
+[https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-vk.yaml](https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-vk.yaml)
+```
+
+### Input parameters
+
+| Name                   | Required | Description                                                    |
+| ---------------------- | -------- | -------------------------------------------------------------- |
+| `protocol_version`     | ✅       | Protocol version to update verification keys for.              |
+| `zksync_os_tag`        | ✅       | Git tag of `zksync-os` used to generate the keys.              |
+| `era_contracts_branch` | ❌       | Explicit `era-contracts` branch. Defaults to protocol mapping. |
+| `zkos_wrapper_version` | ❌       | Explicit `zkos-wrapper` version. Defaults to protocol mapping. |
+| `commit_changes`       | ❌       | Whether to commit the updated keys. Defaults to `true`.        |
+| `open_pr`              | ❌       | Whether to open a PR. Defaults to `true`.                      |
+
+<p align="center">
+    <img src="../images/update-vk-workflow.png" alt="Workflow inputs" style="width: 55%;">
+</p>
 
 ```admonish tip title="Configuring the workflow"
 Follow more detailed tutorial in the [GitHub Actions guide](../github-actions.md).
+```
+
+### Outputs
+
+On **successful runs**, the workflow uploads `contracts_<protocol_version>.patch` Git patch file with the changes made to the `era-contracts` repository.
+
+If `commit_changes` and `open_pr` are set to `true`, a PR is opened automatically with the changes.
+
+```admonish title="Example PR"
+[era-contracts/pull/2018](https://github.com/matter-labs/era-contracts/pull/2018)
+```
+
+On **failed runs**, the workflow saves logs from the workspace `.logs` directory as an artifact.
+
+```admonish tip
+Artifacts can be downloaded directly from the workflow run page in GitHub Actions.
 ```
 
 ## Script dependencies
