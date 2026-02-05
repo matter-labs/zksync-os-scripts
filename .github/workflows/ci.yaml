@@ -47,14 +47,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - protocol_version: "v30.2"
-            zksync_server_branch: "main"
-          - protocol_version: "v31.0"
-            zksync_server_branch: "main"
+        protocol_version: ["v30.2", "v31.0"]
     with:
       protocol_version: "${{ matrix.protocol_version }}"
-      zksync_server_branch: "${{ matrix.zksync_server_branch }}"
     secrets: inherit
 
 
@@ -64,21 +59,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - protocol_version: "v30.2"
-            zksync_os_tag: "v0.2.5"
-          - protocol_version: "v31.0"
-            zksync_os_tag: "v0.2.5"
+        protocol_version: ["v30.2", "v31.0"]
     with:
       protocol_version: "${{ matrix.protocol_version }}"
-      zksync_os_tag: "${{ matrix.zksync_os_tag }}"
     secrets: inherit
 
 
   # Report to Slack if any of the scheduled jobs failed
   report-slack:
     runs-on: ubuntu-latest
-    # if: failure() && github.event_name == 'schedule'
+    if: failure() && github.event_name == 'schedule'
     needs:
       - check-vk
       - check-server

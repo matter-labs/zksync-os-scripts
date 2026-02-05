@@ -24,8 +24,8 @@ runs:
             - type: "section"
               text:
                 type: "mrkdwn"
-                text: "🚨 *${{ inputs.context }}* — `${{ github.repository }}` (`${{ github.ref_name }}`)"
+                text: "🚨 *${{ inputs.context }}*"
             - type: "context"
               elements:
                 - type: "mrkdwn"
-                  text: "by `${{ github.actor }}` • <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|logs>"
+                  text: "`${{ github.repository }}` (`${{ github.ref_name }}`) by `${{ github.actor }}` • <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|logs>"

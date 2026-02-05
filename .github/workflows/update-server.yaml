@@ -7,11 +7,6 @@ on:
         description: '[mandatory] Protocol version to update.'
         type: string
         required: true
-      zksync_server_branch:
-        description: '[mandatory] Git branch of zksync-os-server to use.'
-        type: string
-        required: false
-        default: 'main'
   workflow_dispatch:
     inputs:
       protocol_version:
@@ -60,10 +55,12 @@ defaults:
 
 env:
   # Versions mapping for v30
+  ZKSYNC_OS_SERVER_VERSION_V30: "main"
   ZKSYNC_FOUNDRY_VERSION_V30: "nightly-ae913af65381734ad46c044a9495b67310bc77c4"
   ZKSYNC_ERA_VERSION_V30: "zkstack-for-zksync-os"
   ERA_CONTRACTS_VERSION_V30: "zksync-os-stable"
   # Versions mapping for v31
+  ZKSYNC_OS_SERVER_VERSION_V31: "main"
   ZKSYNC_FOUNDRY_VERSION_V31: "v0.1.5"
   ZKSYNC_ERA_VERSION_V31: "draft-v31"
   ERA_CONTRACTS_VERSION_V31: "draft-v31-with-zksync-os"
@@ -86,10 +83,12 @@ jobs:
             echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
             echo "zksync_era_version=${{ inputs.zksync_era_version != '' && inputs.zksync_era_version || env.ZKSYNC_ERA_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
             echo "era_contracts_version=${{ inputs.era_contracts_version != '' && inputs.era_contracts_version || env.ERA_CONTRACTS_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
+            echo "zksync_server_branch=${{ inputs.zksync_server_branch != '' && inputs.zksync_server_branch || env.ZKSYNC_OS_SERVER_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
           elif [[ "${{ inputs.protocol_version }}" == "v31.0" ]]; then
             echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
             echo "zksync_era_version=${{ inputs.zksync_era_version != '' && inputs.zksync_era_version || env.ZKSYNC_ERA_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
             echo "era_contracts_version=${{ inputs.era_contracts_version != '' && inputs.era_contracts_version || env.ERA_CONTRACTS_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
+            echo "zksync_server_branch=${{ inputs.zksync_server_branch != '' && inputs.zksync_server_branch || env.ZKSYNC_OS_SERVER_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
           else
             echo "Unsupported protocol version: ${{ inputs.protocol_version }}"
             exit 1
@@ -109,7 +108,7 @@ jobs:
           github_token: ${{ secrets.RELEASE_TOKEN }}
           zksync_era_version: ${{ steps.define-versions.outputs.zksync_era_version }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
-          zksync_os_server_version: ${{ inputs.zksync_server_branch || 'main' }}
+          zksync_os_server_version: ${{ steps.define-versions.outputs.zksync_server_branch }}
 
       - name: Update server
         timeout-minutes: 45 # If update takes more than 45 minutes, something is wrong
@@ -150,11 +149,11 @@ jobs:
             fi
             git add .
             git commit -m "${{ env.COMMIT_TITLE }}"
-            git push --set-upstream origin ${BRANCH:-${{ inputs.zksync_server_branch }}}
+            git push --set-upstream origin ${BRANCH:-${{ steps.define-versions.outputs.zksync_server_branch }}}
             if [[ "${{ inputs.open_pr }}" == "true" ]]; then
               gh pr create --title "${{ env.COMMIT_TITLE }}" \
                 --body "Automated local-chains update for protocol ${{ inputs.protocol_version }}" \
-                --base "${{ inputs.zksync_server_branch }}" \
+                --base "${{ steps.define-versions.outputs.zksync_server_branch }}" \
                 --head "${BRANCH}"
             fi
           fi

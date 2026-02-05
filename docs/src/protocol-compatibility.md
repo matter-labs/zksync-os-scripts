@@ -8,10 +8,10 @@ When using the scripts, ensure that you check out the appropriate branches of th
 
 ## Compatibility between server, contracts, and zkstack CLI
 
-| protocol  | zksync-os-server | era-contracts              | zksync-era (zkstack_cli) |
-| :-------: | ---------------- | -------------------------- | ------------------------ |
-| **v30.2** | `main`           | `zksync-os-stable`         | `zkstack-for-zksync-os`  |
-| **v31.0** | `main`           | `draft-v31-with-zksync-os` | `draft-v31`              |
+| protocol  | server | era-contracts              | zksync-era (zkstack_cli) |
+| :-------: | ------ | -------------------------- | ------------------------ |
+| **v30.2** | `main` | `zksync-os-stable`         | `zkstack-for-zksync-os`  |
+| **v31.0** | `main` | `draft-v31-with-zksync-os` | `draft-v31`              |
 
 ## Compatibility for foundry versions
 

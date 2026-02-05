@@ -84,13 +84,45 @@ Please, additionally check [protocol compatibility](../protocol-compatibility.md
 The script supports execution via GitHub Actions [`update-server.yaml` workflow](https://github.com/matter-labs/zksync-os-scripts/blob/main/.github/workflows/update-server.yaml)
 that can be triggered manually via GitHub Actions UI interface.
 
-To trigger the workflow, go to the
-[Actions](https://github.com/matter-labs/zksync-os-scripts/actions) tab,
-select `Update verification key` workflow from the left sidebar, and click the `Run workflow` button.
+```admonish title="Workflow link"
+[https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-server.yaml](https://github.com/matter-labs/zksync-os-scripts/actions/workflows/update-server.yaml)
+```
+
+### Input parameters
+
+| Name                    | Required | Description                                                                  |
+| ----------------------- | -------- | ---------------------------------------------------------------------------- |
+| `protocol_version`      | ✅       | Protocol version to update. Determines default dependency mappings.          |
+| `zksync_server_branch`  | ✅       | Base branch of `zksync-os-server` used for the update.                       |
+| `zksync_era_version`    | ❌       | Explicit `zksync-era` version. If empty, derived from `protocol_version`.    |
+| `era_contracts_version` | ❌       | Explicit `era-contracts` version. If empty, derived from `protocol_version`. |
+| `commit_changes`        | ❌       | Whether to commit changes back to the repository. Defaults to `true`.        |
+| `open_pr`               | ❌       | Whether to open a PR for the committed changes. Defaults to `true`.          |
+
+<p align="center">
+    <img src="../images/update-server-workflow.png" alt="Workflow inputs" style="width: 55%;">
+</p>
 
 ```admonish tip title="Configuring the workflow"
 Follow more detailed tutorial in the [GitHub Actions guide](../github-actions.md).
 ```
+
+### Outputs
+
+On **successful runs**, the workflow uploads `server_<protocol_version>.patch` Git patch file with the changes made to the `zksync-os-server` repository.
+
+If `commit_changes` and `open_pr` are set to `true`, a PR is opened automatically with the changes.
+
+```admonish title="Example PR"
+[zksync-os-server/pull/856](https://github.com/matter-labs/zksync-os-server/pull/856)
+```
+
+On **failed runs**, the workflow saves logs from the workspace `.logs` directory as an artifact.
+
+```admonish tip
+Artifacts can be downloaded directly from the workflow run page in GitHub Actions.
+```
+
 
 ## Script dependencies
 
