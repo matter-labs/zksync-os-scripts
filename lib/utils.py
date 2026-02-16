@@ -19,6 +19,21 @@ from lib import config
 
 logger = logging.getLogger(config.LOGGER_NAME)
 
+def get_short_sha(path: Path) -> str:
+    """Get the short git SHA of the current commit."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=path,
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        logger.warning(f"Failed to get git SHA: {e}")
+        return "unknown"
+
 
 def require_env(name: str, default: str = None) -> str:
     """
