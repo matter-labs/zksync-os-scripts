@@ -4,7 +4,6 @@ from lib.script_context import ScriptCtx
 from lib.entry import run_script
 from lib import utils
 from lib.protocol_version_era import PROTOCOL_TOOLCHAINS
-from pathlib import Path
 
 
 def script(ctx: ScriptCtx) -> None:
@@ -12,7 +11,6 @@ def script(ctx: ScriptCtx) -> None:
     # Paths & constants
     # ------------------------------------------------------------------ #
     protocol_version: str = utils.require_env("PROTOCOL_VERSION", "v30")
-    bellman_cuda_dir: Path = utils.require_path("BELLMAN_CUDA_DIR")
     try:
         toolchain = PROTOCOL_TOOLCHAINS[protocol_version]
     except KeyError:
@@ -32,9 +30,13 @@ def script(ctx: ScriptCtx) -> None:
             "cast": f"=={cast_forge_version}",
             "forge": f"=={cast_forge_version}",
             "cargo": f">={cargo_version}",
+            "git": ">=2",
+            "cmake": ">=3",
             "gsutil": ">=5",
         }
     )
+
+    bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
 
     # ------------------------------------------------------------------ #
     # Build key generator
