@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 
-# Protocol version v30.2
-PROTOCOL_V30_2: str = "v30.2"
+# Protocol version v30
+PROTOCOL_V30: str = "v30"
 # Protocol version v31.0
 PROTOCOL_V31_0: str = "v31.0"
 
 # Current protocol version
-PROTOCOL_VERSION_CURRENT: str = PROTOCOL_V30_2
+PROTOCOL_VERSION_CURRENT: str = PROTOCOL_V30
 # Next supported protocol version
 PROTOCOL_VERSION_NEXT: str = PROTOCOL_V31_0
 
@@ -22,7 +22,7 @@ class Toolchain:
 
 
 PROTOCOL_TOOLCHAINS: dict[str, Toolchain] = {
-    PROTOCOL_V30_2: Toolchain(
+    PROTOCOL_V30: Toolchain(
         yarn_version="1.22",
         cast_forge_version="0.0.4",
         cargo_version="1.80.0",
