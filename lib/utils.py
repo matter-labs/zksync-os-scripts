@@ -19,6 +19,7 @@ from lib import config
 
 logger = logging.getLogger(config.LOGGER_NAME)
 
+
 def get_short_sha(path: Path) -> str:
     """Get the short git SHA of the current commit."""
     try:
