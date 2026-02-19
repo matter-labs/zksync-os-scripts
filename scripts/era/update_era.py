@@ -4,6 +4,7 @@ from lib.script_context import ScriptCtx
 from lib.entry import run_script
 from lib import utils
 from lib.protocol_version_era import PROTOCOL_TOOLCHAINS
+from lib import config
 
 
 def script(ctx: ScriptCtx) -> None:
@@ -84,7 +85,16 @@ def script(ctx: ScriptCtx) -> None:
             )
 
     with ctx.section("Generate compressor data", expected=300):
-        ctx.sh(f"{key_generator_path} generate-compressor-data")
+        crs_path = ctx.workspace / "setup.key"
+        utils.download(
+            config.CRS_FILE_URL,
+            crs_path,
+            checksum=config.CRS_FILE_SHA256_CHECKSUM,
+        )
+        ctx.sh(
+            f"{key_generator_path} generate-compressor-data",
+            env={"COMPACT_CRS_FILE": str(crs_path)},
+        )
 
     # ------------------------------------------------------------------ #
     # Generate json and upload data to GCP
@@ -105,12 +115,12 @@ def script(ctx: ScriptCtx) -> None:
         """
         setup_data_gpu_keys_json.write_text(json_content.strip())
 
-    with ctx.section("Upload data to GCP", expected=300):
-        ctx.sh(f"gsutil -m rsync ./prover/data/keys {us}")
+    # with ctx.section("Upload data to GCP", expected=300):
+    #     ctx.sh(f"gsutil -m rsync ./prover/data/keys {us}")
 
-    with ctx.section("Replicate US -> asia/europe", expected=300):
-        ctx.sh(f"gsutil -m rsync -r {us} {asia}")
-        ctx.sh(f"gsutil -m rsync -r {us} {europe}")
+    # with ctx.section("Replicate US -> asia/europe", expected=300):
+    #     ctx.sh(f"gsutil -m rsync -r {us} {asia}")
+    #     ctx.sh(f"gsutil -m rsync -r {us} {europe}")
 
 
 if __name__ == "__main__":
