@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import subprocess
+import time
 from lib.script_context import ScriptCtx
 from lib.entry import run_script
 from lib import utils
@@ -34,6 +36,7 @@ def script(ctx: ScriptCtx) -> None:
             "git": ">=2",
             "cmake": ">=3",
             "gsutil": ">=5",
+            "gh": ">=2",
         }
     )
 
@@ -120,6 +123,109 @@ def script(ctx: ScriptCtx) -> None:
     #     ctx.sh(f"gsutil -m rsync ./prover/data/keys {us}")
     #     ctx.sh(f"gsutil -m rsync -r {us} {asia}")
     #     ctx.sh(f"gsutil -m rsync -r {us} {europe}")
+
+    with ctx.section("Update contracts with new verifier", expected=120):
+        # Copy the generated verification keys to the expected location for the contract generator
+        ctx.sh(
+            f"cp {ctx.repo_dir}/prover/data/keys/fflonk_verification_snark_key.json {ctx.repo_dir}/contracts/tools/data/fflonk_scheduler_key.json"
+        )
+        ctx.sh(
+            f"cp {ctx.repo_dir}/prover/data/keys/verification_snark_key.json {ctx.repo_dir}/contracts/tools/data/plonk_scheduler_key.json"
+        )
+        # Re-generate the verifier contracts with the new keys
+        ctx.sh(
+            f"""
+            cargo run --bin zksync_verifier_contract_generator --release -- \
+                --plonk_input_path {ctx.repo_dir}/contracts/tools/data/plonk_scheduler_key.json \
+                --fflonk_input_path {ctx.repo_dir}/contracts/tools/data/fflonk_scheduler_key.json \
+                --plonk_output_path {ctx.repo_dir}/l1-contracts/contracts/state-transition/verifiers/L1VerifierPlonk.sol \
+                --fflonk_output_path {ctx.repo_dir}/l1-contracts/contracts/state-transition/verifiers/L1VerifierFflonk.sol
+            """,
+            cwd=ctx.repo_dir / "contracts" / "tools",
+        )
+        # For L2 verifiers, we need to use the --l2_mode flag to generate the correct contracts
+        ctx.sh(
+            f"""
+            cargo run --bin zksync_verifier_contract_generator --release -- \
+                --l2_mode \
+                --plonk_input_path {ctx.repo_dir}/contracts/tools/data/plonk_scheduler_key.json \
+                --fflonk_input_path {ctx.repo_dir}/contracts/tools/data/fflonk_scheduler_key.json \
+                --plonk_output_path {ctx.repo_dir}/l1-contracts/contracts/state-transition/verifiers/L2VerifierPlonk.sol \
+                --fflonk_output_path {ctx.repo_dir}/l1-contracts/contracts/state-transition/verifiers/L2VerifierFflonk.sol
+            """,
+            cwd=ctx.repo_dir / "contracts" / "tools",
+        )
+        # Recompute hashes
+        ctx.sh("./recompute_hashes.sh", cwd=ctx.repo_dir / "contracts")
+
+    with ctx.section("Commit and create PR for verifier contract changes", expected=30):
+        contracts_dir = ctx.repo_dir / "contracts"
+        branch = f"update-verifiers-{int(time.time())}"
+
+        has_changes = False
+        try:
+            ctx.sh(
+                ["git", "diff", "--exit-code", "--quiet"],
+                cwd=contracts_dir,
+                print_command=False,
+            )
+        except subprocess.CalledProcessError:
+            has_changes = True
+
+        if not has_changes:
+            ctx.logger.info(
+                "No verifier contract changes detected, skipping commit/PR."
+            )
+        else:
+            ctx.sh(
+                ["git", "config", "user.name", "zksync-admin-bot2"],
+                cwd=contracts_dir,
+            )
+            ctx.sh(
+                ["git", "config", "user.email", "temp-bot@matterlabs.dev"],
+                cwd=contracts_dir,
+            )
+            ctx.sh(["git", "checkout", "-b", branch], cwd=contracts_dir)
+            ctx.sh(
+                [
+                    "git",
+                    "add",
+                    "l1-contracts/contracts/state-transition/verifiers",
+                    "tools/data",
+                    "AllContractsHashes.json",
+                ],
+                cwd=contracts_dir,
+            )
+            ctx.sh(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    "chore: update verifier contracts with new keys",
+                ],
+                cwd=contracts_dir,
+            )
+            # TODO: uncomment after testing
+            # ctx.sh(
+            #     ["git", "push", "--set-upstream", "origin", branch],
+            #     cwd=contracts_dir,
+            # )
+            # ctx.sh(
+            #     [
+            #         "gh",
+            #         "pr",
+            #         "create",
+            #         "--title",
+            #         "chore: update verifier contracts with new keys",
+            #         "--body",
+            #         "Update verifier contracts with new keys",
+            #         "--base",
+            #         "main",
+            #         "--head",
+            #         branch,
+            #     ],
+            #     cwd=contracts_dir,
+            # )
 
     with ctx.section("Build zkstack binary", expected=120):
         ctx.sh(
