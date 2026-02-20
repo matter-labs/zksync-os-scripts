@@ -115,12 +115,24 @@ def script(ctx: ScriptCtx) -> None:
         """
         setup_data_gpu_keys_json.write_text(json_content.strip())
 
+    # TODO: uncomment after testing
     # with ctx.section("Upload data to GCP", expected=300):
     #     ctx.sh(f"gsutil -m rsync ./prover/data/keys {us}")
-
-    # with ctx.section("Replicate US -> asia/europe", expected=300):
     #     ctx.sh(f"gsutil -m rsync -r {us} {asia}")
     #     ctx.sh(f"gsutil -m rsync -r {us} {europe}")
+
+    with ctx.section("Build zkstack binary", expected=120):
+        ctx.sh(
+            "cargo build --release --bin zkstack",
+            cwd=ctx.repo_dir / "zkstack_cli",
+        )
+
+    zkstack = ctx.repo_dir / "zkstack_cli" / "target" / "release" / "zkstack"
+    with ctx.section("Regenerate genesis", expected=300):
+        ctx.sh(f"{zkstack} up -o=false")
+        ctx.sh(f"{zkstack} dev contracts")
+        ctx.sh(f"{zkstack} chain init configs --dev")
+        ctx.sh(f"{zkstack} dev generate-genesis")
 
 
 if __name__ == "__main__":
