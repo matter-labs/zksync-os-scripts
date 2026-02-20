@@ -6,7 +6,8 @@ import shutil
 import os
 import subprocess
 import time
-from typing import Optional
+import tempfile
+from typing import Optional, TYPE_CHECKING
 import urllib.request
 from pathlib import Path
 import yaml
@@ -18,6 +19,25 @@ from lib import config
 
 
 logger = logging.getLogger(config.LOGGER_NAME)
+
+if TYPE_CHECKING:
+    from lib.script_context import ScriptCtx
+
+
+def get_short_sha(path: Path) -> str:
+    """Get the short git SHA of the current commit."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=path,
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        logger.warning(f"Failed to get git SHA: {e}")
+        return "unknown"
 
 
 def require_env(name: str, default: str = None) -> str:
@@ -60,6 +80,73 @@ def require_cmds(tools: dict[str, str]) -> None:
                 f"{tool} {version} does not satisfy required version {constraint}"
             )
         logger.info(f"Found {tool} {version} ✔")
+
+
+def _safe_segment(value: str) -> str:
+    return "".join(c if c.isalnum() or c in "-._" else "_" for c in value)
+
+
+def prepare_bellman_cuda(ctx: "ScriptCtx") -> Path:
+    explicit = os.environ.get("BELLMAN_CUDA_DIR")
+    if explicit:
+        path = Path(explicit).resolve()
+        if not path.is_dir():
+            raise SystemExit(f"BELLMAN_CUDA_DIR is not a directory: {path}")
+        ctx.logger.info(f"Using BELLMAN_CUDA_DIR from env: {path}")
+        return path
+
+    repo = os.environ.get(
+        "BELLMAN_CUDA_REPO",
+        "https://github.com/matter-labs/era-bellman-cuda.git",
+    )
+    ref = os.environ.get("BELLMAN_CUDA_BRANCH", "main")
+
+    tmp_root = Path(tempfile.gettempdir())
+    src_dir = tmp_root / f"era-bellman-cuda-src-{_safe_segment(ref)}"
+    build_dir = src_dir / "build"
+
+    with ctx.section("Clone era-bellman-cuda", expected=60):
+        if src_dir.exists():
+            shutil.rmtree(src_dir)
+        ctx.sh(
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--branch",
+                ref,
+                repo,
+                str(src_dir),
+            ]
+        )
+
+    with ctx.section("Build era-bellman-cuda", expected=300):
+        if build_dir.exists():
+            shutil.rmtree(build_dir)
+        jobs = max(1, os.cpu_count() or 1)
+        ctx.sh(
+            [
+                "cmake",
+                f"-B{build_dir}",
+                f"-S{src_dir}",
+                "-DCMAKE_BUILD_TYPE=Release",
+            ]
+        )
+        ctx.sh(
+            [
+                "cmake",
+                "--build",
+                str(build_dir),
+                "--config",
+                "Release",
+                "--",
+                f"-j{jobs}",
+            ]
+        )
+
+    ctx.logger.info(f"Prepared BELLMAN_CUDA_DIR: {src_dir}")
+    return src_dir
 
 
 def load_yaml(path: Path) -> dict:

@@ -8,11 +8,14 @@
 
 ---
 
-- [Scripts](./scripts/index.md)
+- [ZKsync OS Scripts](./scripts/zksync-os.md)
   - [Update era-contracts: verification key generation](./scripts/update_vk.md)
   - [Update server: genesis and l1 state](./scripts/update_server.md)
   - [Update zkos-wrapper: prepare for verification key generation](./scripts/update_wrapper.md)
   - [Update prover: prepare for protocol upgrade](./scripts/update_prover.md)
+
+- [ZKsync Era Scripts](./scripts/zksync-era.md)
+  - [Update era: setup data generation](./scripts/update_era.md)
 
 ---
 
