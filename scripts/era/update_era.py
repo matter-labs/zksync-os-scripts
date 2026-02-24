@@ -40,64 +40,64 @@ def script(ctx: ScriptCtx) -> None:
         }
     )
 
-    bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
+    # bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
 
     # ------------------------------------------------------------------ #
     # Build key generator
     # ------------------------------------------------------------------ #
-    key_generator_path = (
-        ctx.repo_dir / "prover" / "target" / "release" / "key_generator"
-    )
-    key_generator_manifest_path = (
-        ctx.repo_dir
-        / "prover"
-        / "crates"
-        / "bin"
-        / "vk_setup_data_generator_server_fri"
-        / "Cargo.toml"
-    )
-    with ctx.section("Build key_generator binary", expected=120):
-        ctx.sh(
-            f"""
-            cargo build --features "gpu" --release \
-                --bin key_generator \
-                --manifest-path {key_generator_manifest_path}
-            """,
-            env={"BELLMAN_CUDA_DIR": str(bellman_cuda_dir)},
-        )
+    # key_generator_path = (
+    #     ctx.repo_dir / "prover" / "target" / "release" / "key_generator"
+    # )
+    # key_generator_manifest_path = (
+    #     ctx.repo_dir
+    #     / "prover"
+    #     / "crates"
+    #     / "bin"
+    #     / "vk_setup_data_generator_server_fri"
+    #     / "Cargo.toml"
+    # )
+    # with ctx.section("Build key_generator binary", expected=120):
+    #     ctx.sh(
+    #         f"""
+    #         cargo build --features "gpu" --release \
+    #             --bin key_generator \
+    #             --manifest-path {key_generator_manifest_path}
+    #         """,
+    #         env={"BELLMAN_CUDA_DIR": str(bellman_cuda_dir)},
+    #     )
 
-    # ------------------------------------------------------------------ #
-    # Generate verification keys
-    # ------------------------------------------------------------------ #
-    with ctx.section("Generate verification keys", expected=300):
-        ctx.sh(f"{key_generator_path} generate-vk --path ./prover/data/keys")
+    # # ------------------------------------------------------------------ #
+    # # Generate verification keys
+    # # ------------------------------------------------------------------ #
+    # with ctx.section("Generate verification keys", expected=300):
+    #     ctx.sh(f"{key_generator_path} generate-vk --path ./prover/data/keys")
 
-    # ------------------------------------------------------------------ #
-    # Generate prover setup data
-    # ------------------------------------------------------------------ #
-    with ctx.section("Generate base layer setup data", expected=300):
-        for numeric_circuit in [*range(1, 20), 255]:
-            ctx.sh(
-                f"{key_generator_path} generate-sk-gpu basic --numeric-circuit {numeric_circuit}"
-            )
+    # # ------------------------------------------------------------------ #
+    # # Generate prover setup data
+    # # ------------------------------------------------------------------ #
+    # with ctx.section("Generate base layer setup data", expected=300):
+    #     for numeric_circuit in [*range(1, 20), 255]:
+    #         ctx.sh(
+    #             f"{key_generator_path} generate-sk-gpu basic --numeric-circuit {numeric_circuit}"
+    #         )
 
-    with ctx.section("Generate recursive layer setup data", expected=300):
-        for numeric_circuit in [*range(1, 23), 255]:
-            ctx.sh(
-                f"{key_generator_path} generate-sk-gpu recursive --numeric-circuit {numeric_circuit}"
-            )
+    # with ctx.section("Generate recursive layer setup data", expected=300):
+    #     for numeric_circuit in [*range(1, 23), 255]:
+    #         ctx.sh(
+    #             f"{key_generator_path} generate-sk-gpu recursive --numeric-circuit {numeric_circuit}"
+    #         )
 
-    with ctx.section("Generate compressor data", expected=300):
-        crs_path = ctx.workspace / "setup.key"
-        utils.download(
-            config.CRS_FILE_URL,
-            crs_path,
-            checksum=config.CRS_FILE_SHA256_CHECKSUM,
-        )
-        ctx.sh(
-            f"{key_generator_path} generate-compressor-data",
-            env={"COMPACT_CRS_FILE": str(crs_path)},
-        )
+    # with ctx.section("Generate compressor data", expected=300):
+    #     crs_path = ctx.workspace / "setup.key"
+    #     utils.download(
+    #         config.CRS_FILE_URL,
+    #         crs_path,
+    #         checksum=config.CRS_FILE_SHA256_CHECKSUM,
+    #     )
+    #     ctx.sh(
+    #         f"{key_generator_path} generate-compressor-data",
+    #         env={"COMPACT_CRS_FILE": str(crs_path)},
+    #     )
 
     # ------------------------------------------------------------------ #
     # Generate json and upload data to GCP
