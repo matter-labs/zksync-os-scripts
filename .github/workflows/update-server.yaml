@@ -46,7 +46,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: update-server-${{ github.ref }}-${{ inputs.protocol_version }}
+  group: update-server-${{ github.event_name }}-${{ github.ref }}-${{ inputs.protocol_version }}
   cancel-in-progress: true
 
 defaults:
