@@ -102,7 +102,11 @@ def script(ctx: ScriptCtx) -> None:
         )
         ctx.sh(
             f"{key_generator_path} generate-compressor-data",
-            env={"COMPACT_CRS_FILE": str(crs_path)},
+            env={
+                "COMPACT_CRS_FILE": str(crs_path),
+                "ZKSYNC_HOME": str(ctx.repo_dir),
+                "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
+            },
         )
 
     # if prover_protocol_patch is not None:
