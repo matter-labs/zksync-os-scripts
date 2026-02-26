@@ -42,7 +42,7 @@ def script(ctx: ScriptCtx) -> None:
             "cmake": ">=3",
             "gsutil": ">=5",
             "gh": ">=2",
-            "sqlx" : ">=0.8",
+            # "sqlx" : ">=0.8",
         }
     )
 
