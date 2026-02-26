@@ -148,7 +148,9 @@ class ScriptCtx:
 
         assert proc.stdout is not None
         for line in proc.stdout:
-            self.logger.log(level, line.rstrip("\n"))
+            # Subprocess output may contain literal "[...]" (e.g. Rust dbg! paths),
+            # so force plain-text logging for streamed lines.
+            self.logger.log(level, line.rstrip("\n"), extra={"markup": False})
 
         rc = proc.wait()
         if rc != 0:

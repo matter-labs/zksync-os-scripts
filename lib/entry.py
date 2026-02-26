@@ -73,9 +73,10 @@ def run_script(script, *, required_env=()):
     except SystemExit:
         raise
     except Exception as e:
-        print(e)
-        # _console.print(f"[red]✘ Script error: {e!r}[/]")
-        # _console.print_exception()
+        # Exception text can include Rust dbg! output with "[...]" fragments.
+        # Disable markup parsing for this line to avoid Rich MarkupError.
+        _console.print(f"✘ Script error: {e!r}", style="red", markup=False)
+        _console.print_exception()
         sys.exit(1)
     else:
         total = perf_counter() - start
