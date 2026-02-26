@@ -199,8 +199,28 @@ def download(
     """Download file with optional checksum verification"""
     dest = Path(dest)
 
+    def _digest_file(path: Path) -> str:
+        h = hashlib.new(checksum_algo)
+        with path.open("rb") as f:
+            while True:
+                chunk = f.read(1024 * 1024)
+                if not chunk:
+                    break
+                h.update(chunk)
+        return h.hexdigest()
+
     if dest.exists() and not force:
-        return
+        if not checksum:
+            return
+        existing_digest = _digest_file(dest)
+        if existing_digest.lower() == checksum.lower():
+            return
+        logger.warning(
+            "Existing file checksum mismatch for %s: expected %s, got %s. Re-downloading.",
+            dest,
+            checksum,
+            existing_digest,
+        )
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".tmp")
