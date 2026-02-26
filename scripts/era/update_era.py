@@ -42,6 +42,7 @@ def script(ctx: ScriptCtx) -> None:
             "cmake": ">=3",
             "gsutil": ">=5",
             "gh": ">=2",
+            # TODO: uncomment before merge
             # "sqlx" : ">=0.8",
         }
     )
@@ -78,7 +79,7 @@ def script(ctx: ScriptCtx) -> None:
                 --manifest-path {key_generator_manifest_path}
             """,
             env={
-                "COMPACT_CRS_FILE": str(crs_path),
+                # "COMPACT_CRS_FILE": str(crs_path),
                 "ZKSYNC_HOME": str(ctx.repo_dir),
                 "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
             },
