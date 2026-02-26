@@ -73,7 +73,7 @@ def run_script(script, *, required_env=()):
     except SystemExit:
         raise
     except Exception as e:
-        # TODO: uncomment before merge
+        print(e)
         # _console.print(f"[red]✘ Script error: {e!r}[/]")
         # _console.print_exception()
         sys.exit(1)

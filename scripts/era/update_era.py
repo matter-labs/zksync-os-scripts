@@ -55,14 +55,6 @@ def script(ctx: ScriptCtx) -> None:
     key_generator_path = (
         ctx.repo_dir / "prover" / "target" / "release" / "key_generator"
     )
-    key_generator_manifest_path = (
-        ctx.repo_dir
-        / "prover"
-        / "crates"
-        / "bin"
-        / "vk_setup_data_generator_server_fri"
-        / "Cargo.toml"
-    )
 
     # crs_path = ctx.workspace / "setup.key"
     # utils.download(
@@ -76,7 +68,7 @@ def script(ctx: ScriptCtx) -> None:
             f"""
             cargo build --features "gpu" --release \
                 --bin key_generator \
-                --manifest-path {key_generator_manifest_path}
+                --manifest-path "./prover/crates/bin/vk_setup_data_generator_server_fri/Cargo.toml"
             """,
             # env={
             #     "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
@@ -106,10 +98,10 @@ def script(ctx: ScriptCtx) -> None:
 
     with ctx.section("Generate compressor data", expected=300):
         ctx.sh(
-            f"{key_generator_path} generate-compressor-data",
+            f"./prover/target/release/key_generator generate-compressor-data",
             env={
                 # "COMPACT_CRS_FILE": str(crs_path),
-                "ZKSYNC_HOME": str(ctx.repo_dir),
+                # "ZKSYNC_HOME": str(ctx.repo_dir),
                 # "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
             },
         )
