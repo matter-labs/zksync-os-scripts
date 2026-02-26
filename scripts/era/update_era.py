@@ -47,7 +47,7 @@ def script(ctx: ScriptCtx) -> None:
         }
     )
 
-    # bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
+    bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
 
     # ------------------------------------------------------------------ #
     # Build key generator
@@ -56,12 +56,12 @@ def script(ctx: ScriptCtx) -> None:
         ctx.repo_dir / "prover" / "target" / "release" / "key_generator"
     )
 
-    # crs_path = ctx.workspace / "setup.key"
-    # utils.download(
-    #     config.CRS_FILE_URL,
-    #     crs_path,
-    #     checksum=config.CRS_FILE_SHA256_CHECKSUM,
-    # )
+    crs_path = ctx.workspace / "setup.key"
+    utils.download(
+        config.CRS_FILE_URL,
+        crs_path,
+        checksum=config.CRS_FILE_SHA256_CHECKSUM,
+    )
 
     with ctx.section("Build key_generator binary", expected=120):
         ctx.sh(
@@ -70,9 +70,9 @@ def script(ctx: ScriptCtx) -> None:
                 --bin key_generator \
                 --manifest-path "./prover/crates/bin/vk_setup_data_generator_server_fri/Cargo.toml"
             """,
-            # env={
-            #     "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
-            # },
+            env={
+                "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
+            },
         )
 
     # # ------------------------------------------------------------------ #
@@ -100,8 +100,8 @@ def script(ctx: ScriptCtx) -> None:
         ctx.sh(
             f"./prover/target/release/key_generator generate-compressor-data",
             env={
-                # "COMPACT_CRS_FILE": str(crs_path),
-                # "ZKSYNC_HOME": str(ctx.repo_dir),
+                "COMPACT_CRS_FILE": str(crs_path),
+                "ZKSYNC_HOME": str(ctx.repo_dir),
                 # "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
             },
         )
