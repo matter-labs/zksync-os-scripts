@@ -73,7 +73,7 @@ def run_script(script, *, required_env=()):
     except SystemExit:
         raise
     except Exception as e:
-        _console.print(f"[red]✘ Script error: {e!r}[/]")
+        _console.print(f"✘ Script error: {e!r}", style="red", markup=False)
         _console.print_exception()
         sys.exit(1)
     else:

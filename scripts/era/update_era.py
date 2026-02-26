@@ -64,12 +64,12 @@ def script(ctx: ScriptCtx) -> None:
         / "Cargo.toml"
     )
 
-    crs_path = ctx.workspace / "setup.key"
-    utils.download(
-        config.CRS_FILE_URL,
-        crs_path,
-        checksum=config.CRS_FILE_SHA256_CHECKSUM,
-    )
+    # crs_path = ctx.workspace / "setup.key"
+    # utils.download(
+    #     config.CRS_FILE_URL,
+    #     crs_path,
+    #     checksum=config.CRS_FILE_SHA256_CHECKSUM,
+    # )
 
     with ctx.section("Build key_generator binary", expected=120):
         ctx.sh(
@@ -79,8 +79,6 @@ def script(ctx: ScriptCtx) -> None:
                 --manifest-path {key_generator_manifest_path}
             """,
             env={
-                # "COMPACT_CRS_FILE": str(crs_path),
-                "ZKSYNC_HOME": str(ctx.repo_dir),
                 "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
             },
         )
@@ -110,7 +108,7 @@ def script(ctx: ScriptCtx) -> None:
         ctx.sh(
             f"{key_generator_path} generate-compressor-data",
             env={
-                "COMPACT_CRS_FILE": str(crs_path),
+                # "COMPACT_CRS_FILE": str(crs_path),
                 "ZKSYNC_HOME": str(ctx.repo_dir),
                 "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
             },
