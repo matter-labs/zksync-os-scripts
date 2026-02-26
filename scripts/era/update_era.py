@@ -47,7 +47,7 @@ def script(ctx: ScriptCtx) -> None:
         }
     )
 
-    bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
+    # bellman_cuda_dir = utils.prepare_bellman_cuda(ctx)
 
     # ------------------------------------------------------------------ #
     # Build key generator
@@ -78,9 +78,9 @@ def script(ctx: ScriptCtx) -> None:
                 --bin key_generator \
                 --manifest-path {key_generator_manifest_path}
             """,
-            env={
-                "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
-            },
+            # env={
+            #     "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
+            # },
         )
 
     # # ------------------------------------------------------------------ #
@@ -110,7 +110,7 @@ def script(ctx: ScriptCtx) -> None:
             env={
                 # "COMPACT_CRS_FILE": str(crs_path),
                 "ZKSYNC_HOME": str(ctx.repo_dir),
-                "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
+                # "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
             },
         )
 

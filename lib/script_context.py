@@ -131,8 +131,6 @@ class ScriptCtx:
         if env:
             merged_env.update(env)
 
-        self.logger.debug(f"Environment for command: {merged_env}")
-
         # Stream output
         level = logging.INFO if self.verbose else logging.DEBUG
         try:
