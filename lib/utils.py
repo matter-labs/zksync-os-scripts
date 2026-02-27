@@ -304,7 +304,6 @@ def gateway(
         cwd=repo_path,
         env=new_env,
         stdout=subprocess.DEVNULL,
-        # stderr=subprocess.DEVNULL,
         text=True,
     )
     time.sleep(15)

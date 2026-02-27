@@ -94,6 +94,7 @@ def get_contract_address(
 def update_chain_config_yaml(
     yaml_path: str | Path,
     *,
+    use_blob_operator: bool,
     contracts_yaml: str | Path,
     wallets_yaml: str | Path,
 ) -> None:
@@ -117,7 +118,7 @@ def update_chain_config_yaml(
         "prove_operator": "operator_prove_sk",
         "execute_operator": "operator_execute_sk",
     }
-    if yaml_path.name == "chain_506.yaml" or "gateway" in str(yaml_path):
+    if use_blob_operator:
         mapping["blob_operator"] = "operator_commit_sk"
     else:
         mapping["operator"] = "operator_commit_sk"
