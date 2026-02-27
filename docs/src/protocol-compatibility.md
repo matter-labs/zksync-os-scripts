@@ -11,7 +11,7 @@ When using the scripts, ensure that you check out the appropriate branches of th
 | protocol  | server | era-contracts              | zksync-era (zkstack_cli) |
 | :-------: | ------ | -------------------------- | ------------------------ |
 | **v30.2** | `main` | `zksync-os-stable`         | `zkstack-for-zksync-os`  |
-| **v31.0** | `main` | `draft-v31-with-zksync-os` | `draft-v31`              |
+| **v31.0** | `main` | `draft-v31-zksync-os` | `draft-v31`              |
 
 ## Compatibility for foundry versions
 
