@@ -141,11 +141,10 @@ def script(ctx: ScriptCtx) -> None:
         """
         setup_data_gpu_keys_json.write_text(json_content.strip())
 
-    # TODO: uncomment before merge
-    # with ctx.section("Upload data to GCP", expected=300):
-    #     ctx.sh(f"gsutil -m rsync ./prover/data/keys {us}")
-    #     ctx.sh(f"gsutil -m rsync -r {us} {asia}")
-    #     ctx.sh(f"gsutil -m rsync -r {us} {europe}")
+    with ctx.section("Upload data to GCP", expected=300):
+        ctx.sh(f"gsutil -m rsync ./prover/data/keys {us}")
+        ctx.sh(f"gsutil -m rsync -r {us} {asia}")
+        ctx.sh(f"gsutil -m rsync -r {us} {europe}")
 
     with ctx.section("Update contracts with new verifier", expected=120):
         # Copy the generated verification keys to the expected location for the contract generator
@@ -181,55 +180,78 @@ def script(ctx: ScriptCtx) -> None:
         # Recompute hashes
         ctx.sh(f"bash -c {ctx.repo_dir}/contracts/recompute_hashes.sh", cwd=ctx.repo_dir / "contracts")
 
-    # TODO: uncomment before merge
-    # when no changes, we might have deleted:    l1-contracts/snapshots/Executor.json
-    # with ctx.section("Commit and create PR for verifier contract changes", expected=30):
-    #     contracts_dir = ctx.repo_dir / "contracts"
-    #     branch = f"update-verifiers-{int(time.time())}"
+    with ctx.section("Commit and create PR for verifier contract changes", expected=30):
+        contracts_dir = ctx.repo_dir / "contracts"
+        branch = f"update-verifiers-{int(time.time())}"
 
-    #     has_changes = False
-    #     try:
-    #         ctx.sh(
-    #             ["git", "diff", "--exit-code", "--quiet"],
-    #             cwd=contracts_dir,
-    #             print_command=False,
-    #         )
-    #     except subprocess.CalledProcessError:
-    #         has_changes = True
+        has_changes = False
+        try:
+            ctx.sh(
+                [
+                    "git",
+                    "diff",
+                    "--exit-code",
+                    "--quiet",
+                    "--",
+                    "l1-contracts/contracts/state-transition/verifiers",
+                    "tools/data",
+                    "AllContractsHashes.json",
+                ],
+                cwd=contracts_dir,
+                print_command=False,
+            )
+        except subprocess.CalledProcessError:
+            has_changes = True
 
-    #     if not has_changes:
-    #         ctx.logger.info(
-    #             "No verifier contract changes detected, skipping commit/PR."
-    #         )
-    #     else:
-    #         ctx.sh(
-    #             ["git", "config", "user.name", "zksync-admin-bot2"],
-    #             cwd=contracts_dir,
-    #         )
-    #         ctx.sh(
-    #             ["git", "config", "user.email", "temp-bot@matterlabs.dev"],
-    #             cwd=contracts_dir,
-    #         )
-    #         ctx.sh(["git", "checkout", "-b", branch], cwd=contracts_dir)
-    #         ctx.sh(
-    #             [
-    #                 "git",
-    #                 "add",
-    #                 "l1-contracts/contracts/state-transition/verifiers",
-    #                 "tools/data",
-    #                 "AllContractsHashes.json",
-    #             ],
-    #             cwd=contracts_dir,
-    #         )
-    #         ctx.sh(
-    #             [
-    #                 "git",
-    #                 "commit",
-    #                 "-m",
-    #                 "chore: update verifier contracts with new keys",
-    #             ],
-    #             cwd=contracts_dir,
-    #         )
+        if not has_changes:
+            ctx.logger.info(
+                "No verifier contract changes detected, skipping commit/PR."
+            )
+        else:
+            ctx.sh(
+                ["git", "config", "user.name", "protocol-upgrade-bot"],
+                cwd=contracts_dir,
+            )
+            ctx.sh(
+                ["git", "config", "user.email", "protocol-upgrade-bot@matterlabs.dev"],
+                cwd=contracts_dir,
+            )
+            ctx.sh(["git", "checkout", "-b", branch], cwd=contracts_dir)
+            ctx.sh(
+                [
+                    "git",
+                    "add",
+                    "-A",
+                    "l1-contracts/contracts/state-transition/verifiers",
+                    "tools/data",
+                    "AllContractsHashes.json",
+                ],
+                cwd=contracts_dir,
+            )
+            has_staged_changes = False
+            try:
+                ctx.sh(
+                    ["git", "diff", "--cached", "--exit-code", "--quiet"],
+                    cwd=contracts_dir,
+                    print_command=False,
+                )
+            except subprocess.CalledProcessError:
+                has_staged_changes = True
+
+            if not has_staged_changes:
+                ctx.logger.info(
+                    "No staged verifier changes found after git add, skipping commit."
+                )
+            else:
+                ctx.sh(
+                    [
+                        "git",
+                        "commit",
+                        "-m",
+                        "chore: update verifier contracts with new keys",
+                    ],
+                    cwd=contracts_dir,
+                )
 
     # ------------------------------------------------------------------ #
     # Regenerate genesis
