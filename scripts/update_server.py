@@ -465,12 +465,6 @@ def script(ctx: ScriptCtx) -> None:
             """,
             cwd=era_contracts_path / "tools" / "zksync-os-genesis-gen",
         )
-        ctx.sh(
-            f"""
-            echo "$(jq '.additional_preimages = [["0x49d1759eb6d2cd7eda55639c305253810d31f5d50cea1ede0be519ccbb1d8a93", "0x0000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffff00
-000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"]]' {ctx.repo_dir / "local-chains" / protocol_version / "genesis.json"})" > {ctx.repo_dir / "local-chains" / protocol_version / "genesis.json"}
-            """
-        )
 
     # TODO: currently single-chain setup is disabled, instead it is a symlink to one of the chains from Multi-chain setup
     #       this might change in the future
