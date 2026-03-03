@@ -42,7 +42,7 @@ def script(ctx: ScriptCtx) -> None:
             "cmake": ">=3",
             "gsutil": ">=5",
             "gh": ">=2",
-            "sqlx" : ">=0.8",
+            "sqlx": ">=0.8",
         }
     )
 
@@ -68,9 +68,7 @@ def script(ctx: ScriptCtx) -> None:
             cargo build --features "gpu" --release --bin key_generator
             """,
             cwd=ctx.repo_dir / "prover",
-            env={
-                "BELLMAN_CUDA_DIR": str(bellman_cuda_dir)
-            },
+            env={"BELLMAN_CUDA_DIR": str(bellman_cuda_dir)},
         )
 
     # ------------------------------------------------------------------ #
@@ -178,7 +176,10 @@ def script(ctx: ScriptCtx) -> None:
             cwd=ctx.repo_dir / "contracts" / "tools",
         )
         # Recompute hashes
-        ctx.sh(f"bash -c {ctx.repo_dir}/contracts/recompute_hashes.sh", cwd=ctx.repo_dir / "contracts")
+        ctx.sh(
+            f"bash -c {ctx.repo_dir}/contracts/recompute_hashes.sh",
+            cwd=ctx.repo_dir / "contracts",
+        )
 
     with ctx.section("Commit and create PR for verifier contract changes", expected=30):
         contracts_dir = ctx.repo_dir / "contracts"

@@ -20,7 +20,9 @@ GATEWAY_CHAIN_ID: str = "506"
 LOGGER_NAME: str = "zksync-os-scripts"
 
 # URL for the trusted setup CRS file
-CRS_FILE_URL: str = "https://storage.googleapis.com/matterlabs-setup-keys-us/setup-keys/setup_2^24.key"
+CRS_FILE_URL: str = (
+    "https://storage.googleapis.com/matterlabs-setup-keys-us/setup-keys/setup_2^24.key"
+)
 
 # SHA256 checksum for the trusted setup CRS file
 CRS_FILE_SHA256_CHECKSUM: str = (
