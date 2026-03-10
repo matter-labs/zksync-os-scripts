@@ -13,6 +13,8 @@ Steps:
 - Stop Anvil and dump the new zkos-l1-state.json
 """
 
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from packaging.version import Version
 
@@ -78,31 +80,264 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+def _collect_operator_sks(ecosystem_dir: Path, chains: list[str]) -> list[str]:
+    """Collect operator private keys (operator, prove_operator, execute_operator) for each chain."""
+    sks: list[str] = []
+    for chain in chains:
+        wallets_yaml = ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
+        wallets = utils.load_yaml(wallets_yaml)
+        for role in ["operator", "prove_operator", "execute_operator"]:
+            entry = wallets.get(role)
+            if not isinstance(entry, dict) or not entry.get("private_key"):
+                raise SystemExit(f"Missing private_key for '{role}' in {wallets_yaml}")
+            sks.append(utils.normalize_hex(entry["private_key"], length=64))
+    return sks
+
+
+# ---------------------------------------------------------------------------
+# Ecosystem setup strategies
+# ---------------------------------------------------------------------------
+@dataclass
+class EcosystemSetup(ABC):
+    """
+    Strategy that captures the differences between gateway and no-gateway setups.
+    Subclasses override hooks; init_ecosystem stays linear with no conditionals.
+    """
+
+    ecosystem_name: str
+    user_chains: list[str]  # chains excluding any gateway chain
+
+    @property
+    @abstractmethod
+    def initial_chain(self) -> str:
+        """
+        The chain created before `ecosystem init` and set as the zkstack default.
+        `ecosystem init` deploys and initialises this chain; all other user chains
+        are created and initialised afterwards.
+        """
+        ...
+
+    @property
+    def all_chains(self) -> list[str]:
+        """All chains whose configs must be written (may include a gateway chain)."""
+        return list(self.user_chains)
+
+    def use_blob_operator_for(self, chain: str) -> bool:
+        """Return True if chain_{chain}.yaml should use the blob operator key."""
+        return False
+
+    def on_initial_chain_ready(
+        self,
+        ctx: ScriptCtx,
+        ecosystem_dir: Path,
+        zkstack_bin: Path,
+        contracts_yaml: Path,
+        wallets_yaml: Path,
+        chain_operator_sks: list[str],
+        protocol_base: Path,
+    ) -> None:
+        """
+        Hook called (inside the Anvil session) right after the initial chain's
+        config files have been written.  Gateway setups override this to perform
+        gateway-specific L1 operations (deposit tx, convert-to-gateway, …).
+        """
+
+    def run_gateway_phase(
+        self,
+        ctx: ScriptCtx,
+        zkstack_bin: Path,
+        ecosystem_dir: Path,
+        protocol_version: str,
+        protocol_base: Path,
+    ) -> None:
+        """
+        Hook called (still inside the Anvil session) after all chain configs have
+        been written.  Gateway setups override this to build the server, start the
+        gateway, migrate chains, and archive the gateway DB.
+        """
+
+
+@dataclass
+class NoGatewaySetup(EcosystemSetup):
+    """
+    Ecosystem without a gateway chain.
+    Used for v30.2, and optionally for v31.0 when USE_GATEWAY=false.
+    """
+
+    @property
+    def initial_chain(self) -> str:
+        return self.user_chains[0]
+
+
+@dataclass
+class GatewaySetup(EcosystemSetup):
+    """
+    Ecosystem with a gateway chain.
+    Used for v31.0 when USE_GATEWAY=true (the default).
+    """
+
+    gateway_chain_id: str
+
+    @property
+    def initial_chain(self) -> str:
+        return self.gateway_chain_id
+
+    @property
+    def all_chains(self) -> list[str]:
+        return self.user_chains + [self.gateway_chain_id]
+
+    def use_blob_operator_for(self, chain: str) -> bool:
+        # Gateway settles on L1, so it uses the blob operator
+        return chain == self.gateway_chain_id
+
+    def on_initial_chain_ready(
+        self,
+        ctx: ScriptCtx,
+        ecosystem_dir: Path,
+        zkstack_bin: Path,
+        contracts_yaml: Path,
+        wallets_yaml: Path,
+        chain_operator_sks: list[str],
+        protocol_base: Path,
+    ) -> None:
+        gateway_base = protocol_base / "gateway"
+
+        # Keep a separate gateway/config.yaml in sync
+        edit_server.update_chain_config_yaml(
+            gateway_base / "config.yaml",
+            use_blob_operator=True,
+            contracts_yaml=contracts_yaml,
+            wallets_yaml=wallets_yaml,
+        )
+
+        bridgehub_address = edit_server.get_contract_address(
+            contracts_yaml, "bridgehub_proxy_addr"
+        )
+
+        ctx.logger.info("Generating L1 -> L2 deposit transaction...")
+        ctx.sh(
+            f"""
+            cargo run --release --package zksync_os_generate_deposit --
+            --bridgehub "{bridgehub_address}"
+            --chain-id {self.gateway_chain_id}
+            --amount 100
+            """
+        )
+        ctx.sh(
+            f"""
+            {zkstack_bin}
+            chain gateway create-tx-filterer
+            --chain {self.gateway_chain_id}
+            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+            --ignore-prerequisites
+            """,
+            cwd=ecosystem_dir,
+        )
+        ctx.sh(
+            f"""
+            {zkstack_bin}
+            chain gateway convert-to-gateway
+            --chain {self.gateway_chain_id}
+            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+            --ignore-prerequisites
+            --no-gateway-overrides
+            """,
+            cwd=ecosystem_dir,
+        )
+
+        ctx.logger.info(
+            "Generating L1 -> L2 gateway deposit transactions for chain operators..."
+        )
+        for sk in chain_operator_sks:
+            ctx.sh(
+                f"""
+                cargo run --release --package zksync_os_generate_deposit --
+                --bridgehub "{bridgehub_address}"
+                --chain-id {self.gateway_chain_id}
+                --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                --private-key {sk}
+                --amount 10.0
+                """
+            )
+
+    def run_gateway_phase(
+        self,
+        ctx: ScriptCtx,
+        zkstack_bin: Path,
+        ecosystem_dir: Path,
+        protocol_version: str,
+        protocol_base: Path,
+    ) -> None:
+        gateway_db = ctx.workspace / "gateway-db"
+
+        # Pre-build the server before starting the gateway
+        ctx.sh("cargo build --release", cwd=ctx.repo_dir)
+        utils.clean_dir(gateway_db)
+        utils.remove_dir(ctx.workspace / "gateway-state.tar.gz")
+
+        with utils.gateway(
+            repo_path=ctx.repo_dir,
+            db_path=gateway_db,
+            protocol_version=protocol_version,
+        ):
+            for chain in self.user_chains:
+                ctx.sh(
+                    f"""
+                    {zkstack_bin}
+                    chain gateway migrate-to-gateway
+                    --chain {chain}
+                    --gateway-chain-name {self.gateway_chain_id}
+                    --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                    --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
+                    """,
+                    cwd=ecosystem_dir,
+                )
+                ctx.sh(
+                    f"""
+                    {zkstack_bin}
+                    chain gateway finalize-chain-migration-to-gateway
+                    --chain {chain}
+                    --gateway-chain-name {self.gateway_chain_id}
+                    --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                    --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
+                    --deploy-paymaster=false
+                    """,
+                    cwd=ecosystem_dir,
+                )
+
+        utils.cp(
+            ctx.workspace / "gateway-state.tar.gz",
+            protocol_base / "gateway-state.tar.gz",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Main ecosystem orchestration
+# ---------------------------------------------------------------------------
 def init_ecosystem(
     ctx: ScriptCtx,
-    ecosystem_name: str,
-    chains: list[str],
+    setup: EcosystemSetup,
+    protocol_version: str,
 ) -> None:
     era_contracts_path = utils.require_path("ERA_CONTRACTS_PATH")
     zksync_era_path = utils.require_path("ZKSYNC_ERA_PATH")
-    protocol_version = utils.require_env("PROTOCOL_VERSION")
 
     zkstack_bin = zksync_era_path / "zkstack_cli" / "target" / "release" / "zkstack"
     ecosystems_dir = ctx.workspace / "ecosystems"
-    ecosystem_dir = ctx.workspace / "ecosystems" / ecosystem_name
+    ecosystem_dir = ecosystems_dir / setup.ecosystem_name
     protocol_base = ctx.repo_dir / "local-chains" / protocol_version
-    gateway_db = ctx.workspace / "gateway-db"
-    default_base = protocol_base / "default"
-    gateway_base = protocol_base / "gateway"
-    base = protocol_base / ecosystem_name
+    base = protocol_base / setup.ecosystem_name
 
-    with ctx.section(f"Initialize {ecosystem_name} ecosystem", expected=120):
+    with ctx.section(f"Initialize {setup.ecosystem_name} ecosystem", expected=120):
         utils.clean_dir(ecosystem_dir)
         ctx.sh(
             f"""
                 {zkstack_bin}
                   ecosystem create
-                  --ecosystem-name {ecosystem_name}
+                  --ecosystem-name {setup.ecosystem_name}
                   --l1-network localhost
                   --chain-name tmp-chain
                   --chain-id 12345
@@ -123,7 +358,7 @@ def init_ecosystem(
                 {zkstack_bin}
                   ctm set-ctm-contracts
                   --contracts-src-path {era_contracts_path}
-                  --default-configs-src-path {ctx.repo_dir / "local-chains" / protocol_version / "default"}
+                  --default-configs-src-path {protocol_base / "default"}
                   --zksync-os
                 """,
             cwd=ecosystem_dir,
@@ -131,16 +366,14 @@ def init_ecosystem(
         # Remove default era chain (non zksync-os)
         utils.clean_dir(ecosystem_dir / "chains")
 
-        if config.GATEWAY_CHAIN_ID not in chains:
-            raise SystemExit(f"Missing Gateway chain ({config.GATEWAY_CHAIN_ID}) in list of chains")
-
-        # We want to initialize ecosystem with just gateway in it. Other chains will be initialized and migrated later in the flow.
+        # Create the initial chain and mark it as the zkstack default so that
+        # `ecosystem init` below knows which chain to deploy.
         ctx.sh(
             f"""
             {zkstack_bin}
               chain create
-              --chain-name {config.GATEWAY_CHAIN_ID}
-              --chain-id {config.GATEWAY_CHAIN_ID}
+              --chain-name {setup.initial_chain}
+              --chain-id {setup.initial_chain}
               --prover-mode no-proofs
               --wallet-creation random
               --l1-batch-commit-data-generator-mode rollup
@@ -154,20 +387,14 @@ def init_ecosystem(
             cwd=ecosystem_dir,
         )
 
-    # ------------------------------------------------------------------ #
-    # Start Anvil
-    # ------------------------------------------------------------------ #
-    with ctx.section(f"Generating l1-state.json for {ecosystem_name}", expected=250):
+    with ctx.section(
+        f"Generating l1-state.json for {setup.ecosystem_name}", expected=250
+    ):
         l1_state_file = protocol_base / "l1-state.json"
         with utils.anvil_dump_state(l1_state_file=l1_state_file):
-            # ------------------------------------------------------------------ #
-            # Fund accounts
-            # ------------------------------------------------------------------ #
             ctx.logger.info("Funding accounts...")
             fund_accounts(ctx, ecosystem_dir)
-            # ------------------------------------------------------------------ #
-            # Deploy L1 contracts via zkstack
-            # ------------------------------------------------------------------ #
+
             ctx.logger.info("Deploying L1 contracts...")
             ctx.sh(
                 f"""
@@ -183,177 +410,85 @@ def init_ecosystem(
                     """,
                 cwd=ecosystem_dir,
             )
-            for chain in chains:
-                if chain != config.GATEWAY_CHAIN_ID:
-                    ctx.sh(
-                        f"""
-                            {zkstack_bin}
-                              chain create
-                              --chain-name {chain}
-                              --chain-id {chain}
-                              --prover-mode no-proofs
-                              --wallet-creation random
-                              --l1-batch-commit-data-generator-mode rollup
-                              --base-token-address 0x0000000000000000000000000000000000000001
-                              --base-token-price-nominator 1
-                              --base-token-price-denominator 1
-                              --evm-emulator false
-                              --set-as-default=false
-                              --zksync-os
-                        """,
-                        cwd=ecosystem_dir,
-                    )
-                    ctx.logger.debug(f"Funding accounts for chain {chain}...")
-                    fund_accounts(ctx, ecosystem_dir)
-                    ctx.sh(
-                        f"""
-                            {zkstack_bin}
-                              chain init
-                              --chain {chain}
-                              --deploy-paymaster=false
-                              --no-port-reallocation
-                              --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                              --skip-priority-txs
-                              --pause-deposits
-                        """,
-                        cwd=ecosystem_dir,
-                    )
 
-            # Collect all chains' operator keys. They will be used to fund themselves on gateway via L1->Gateway deposit.
-            chain_operator_sks = []
-            for chain in chains:
-                if chain == config.GATEWAY_CHAIN_ID:
+            # Create and initialise every user chain that wasn't already
+            # deployed by `ecosystem init` (i.e. all except the initial chain).
+            for chain in setup.user_chains:
+                if chain == setup.initial_chain:
                     continue
-                wallets_yaml = (
-                    ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
+                ctx.sh(
+                    f"""
+                        {zkstack_bin}
+                          chain create
+                          --chain-name {chain}
+                          --chain-id {chain}
+                          --prover-mode no-proofs
+                          --wallet-creation random
+                          --l1-batch-commit-data-generator-mode rollup
+                          --base-token-address 0x0000000000000000000000000000000000000001
+                          --base-token-price-nominator 1
+                          --base-token-price-denominator 1
+                          --evm-emulator false
+                          --set-as-default=false
+                          --zksync-os
+                    """,
+                    cwd=ecosystem_dir,
                 )
-                wallets = utils.load_yaml(wallets_yaml)
-                for role in ["operator", "prove_operator", "execute_operator"]:
-                    entry = wallets.get(role)
-                    if not isinstance(entry, dict) or not entry.get("private_key"):
-                        raise SystemExit(
-                            f"Missing private_key for '{role}' in {wallets_yaml}"
-                        )
-                    sk_raw = entry["private_key"]
-                    sk = utils.normalize_hex(sk_raw, length=64)
-                    chain_operator_sks.append(sk)
-            ctx.logger.debug(f"Gateway chain operators: {chain_operator_sks}")
+                ctx.logger.debug(f"Funding accounts for chain {chain}...")
+                fund_accounts(ctx, ecosystem_dir)
+                ctx.sh(
+                    f"""
+                        {zkstack_bin}
+                          chain init
+                          --chain {chain}
+                          --deploy-paymaster=false
+                          --no-port-reallocation
+                          --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                          --skip-priority-txs
+                          --pause-deposits
+                    """,
+                    cwd=ecosystem_dir,
+                )
 
-            for chain in chains:
-                # ------------------------------------------------------------------ #
-                # Update contract addresses and operator keys
-                # ------------------------------------------------------------------ #
-                ctx.logger.debug("Updating contract addresses...")
+            # Collect operator SKs from all user chains; used by GatewaySetup
+            # to fund chain operators on the gateway via L1->Gateway deposits.
+            chain_operator_sks = _collect_operator_sks(ecosystem_dir, setup.user_chains)
+
+            # Write config files and copy wallets/contracts for every chain.
+            for chain in setup.all_chains:
+                ctx.logger.debug(f"Updating contract addresses for chain {chain}...")
                 contracts_yaml = (
                     ecosystem_dir / "chains" / chain / "configs" / "contracts.yaml"
                 )
                 chain_wallets_yaml = (
                     ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
                 )
+                name_suffix = (
+                    f"_{chain}" if setup.ecosystem_name == "multi_chain" else ""
+                )
                 edit_server.update_chain_config_yaml(
                     base / f"chain_{chain}.yaml",
-                    # We use blob operator for gateway as it settles on L1
-                    use_blob_operator = chain == config.GATEWAY_CHAIN_ID,
+                    use_blob_operator=setup.use_blob_operator_for(chain),
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
                 )
-                name_suffix = f"_{chain}" if ecosystem_name == "multi_chain" else ""
-                wallets_out = base / f"wallets{name_suffix}.yaml"
-                contracts_out = base / f"contracts{name_suffix}.yaml"
-                # Copy wallets.yaml and contracts.yaml to local-chains
-                utils.cp(chain_wallets_yaml, wallets_out)
-                utils.cp(contracts_yaml, contracts_out)
-                if chain == config.GATEWAY_CHAIN_ID:
-                    edit_server.update_chain_config_yaml(
-                        gateway_base / "config.yaml",
-                        # We use blob operator for gateway as it settles on L1
-                        use_blob_operator = True,
-                        contracts_yaml=contracts_yaml,
-                        wallets_yaml=chain_wallets_yaml,
-                    )
-                    # ------------------------------------------------------------------ #
-                    # Generate deposit transaction
-                    # ------------------------------------------------------------------ #
-                    ctx.logger.info("Generating L1 -> L2 deposit transaction...")
-                    bridgehub_address = edit_server.get_contract_address(
-                        contracts_yaml,
-                        "bridgehub_proxy_addr",
-                    )
-                    ctx.sh(
-                        f"""
-                        cargo run --release --package zksync_os_generate_deposit --
-                        --bridgehub "{bridgehub_address}"
-                        --chain-id {chain}
-                        --amount 100
-                        """
-                    )
-                    ctx.sh(
-                        f"""
-                        {zkstack_bin}
-                        chain gateway create-tx-filterer
-                        --chain {config.GATEWAY_CHAIN_ID}
-                        --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                        --ignore-prerequisites
-                        """,
-                        cwd=ecosystem_dir,
-                    )
-                    ctx.sh(
-                        f"""
-                        {zkstack_bin}
-                        chain gateway convert-to-gateway
-                        --chain {config.GATEWAY_CHAIN_ID}
-                        --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                        --ignore-prerequisites
-                        --no-gateway-overrides
-                        """,
-                        cwd=ecosystem_dir,
-                    )
-                    ctx.logger.info("Generating L1 -> L2 gateway deposit transactions for chain operators...")
-                    for chain_operator_sk in chain_operator_sks:
-                        ctx.sh(
-                            f"""
-                            cargo run --release --package zksync_os_generate_deposit --
-                            --bridgehub "{bridgehub_address}"
-                            --chain-id {config.GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                            --private-key {chain_operator_sk}
-                            --amount 10.0
-                            """
-                        )
+                utils.cp(chain_wallets_yaml, base / f"wallets{name_suffix}.yaml")
+                utils.cp(contracts_yaml, base / f"contracts{name_suffix}.yaml")
 
-            # Pre-build zksync-os-server so we can run gateway
-            ctx.sh(f"cargo build --release", cwd=ctx.repo_dir)
-            utils.clean_dir(gateway_db)
-            utils.remove_dir(ctx.workspace / "gateway-state.tar.gz")
-            # Start gateway and migrate non-gateway chains on it
-            with utils.gateway(repo_path=ctx.repo_dir, db_path=gateway_db, protocol_version=protocol_version):
-                for chain in chains:
-                    if chain == config.GATEWAY_CHAIN_ID:
-                        continue
-                    ctx.sh(
-                        f"""
-                            {zkstack_bin}
-                            chain gateway migrate-to-gateway
-                            --chain {chain}
-                            --gateway-chain-name {config.GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                            --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
-                        """,
-                        cwd=ecosystem_dir,
+                if chain == setup.initial_chain:
+                    setup.on_initial_chain_ready(
+                        ctx,
+                        ecosystem_dir,
+                        zkstack_bin,
+                        contracts_yaml,
+                        chain_wallets_yaml,
+                        chain_operator_sks,
+                        protocol_base,
                     )
-                    ctx.sh(
-                        f"""
-                            {zkstack_bin}
-                            chain gateway finalize-chain-migration-to-gateway
-                            --chain {chain}
-                            --gateway-chain-name {config.GATEWAY_CHAIN_ID}
-                            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                            --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
-                            --deploy-paymaster=false
-                        """,
-                        cwd=ecosystem_dir,
-                    )
-            utils.cp(ctx.workspace / "gateway-state.tar.gz", protocol_base / "gateway-state.tar.gz")
+
+            setup.run_gateway_phase(
+                ctx, zkstack_bin, ecosystem_dir, protocol_version, protocol_base
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +524,32 @@ def script(ctx: ScriptCtx) -> None:
             "cargo": f">={cargo_version}",
         }
     )
+
+    # ------------------------------------------------------------------ #
+    # Select ecosystem setup
+    #
+    #   v30.2                    → NoGatewaySetup (gateway not supported)
+    #   v31.0, USE_GATEWAY=true  → GatewaySetup   (default for v31.0)
+    #   v31.0, USE_GATEWAY=false → NoGatewaySetup (opt-out for testing)
+    # ------------------------------------------------------------------ #
+    user_chains = ["6565", "6566"]
+
+    if Version(protocol_version) == Version(PROTOCOL_VERSION_CURRENT):
+        setup: EcosystemSetup = NoGatewaySetup("multi_chain", user_chains)
+    elif Version(protocol_version) >= Version(PROTOCOL_VERSION_NEXT):
+        use_gateway_raw = utils.require_env("USE_GATEWAY", "true")
+        if use_gateway_raw.lower() not in ("true", "false"):
+            raise SystemExit(
+                f"USE_GATEWAY must be 'true' or 'false', got: {use_gateway_raw!r}"
+            )
+        if use_gateway_raw.lower() == "true":
+            setup = GatewaySetup("multi_chain", user_chains, config.GATEWAY_CHAIN_ID)
+        else:
+            setup = NoGatewaySetup("multi_chain", user_chains)
+    else:
+        raise ValueError(
+            f"Unsupported PROTOCOL_VERSION: {protocol_version}. Supported: {list(PROTOCOL_TOOLCHAINS.keys())}"
+        )
 
     # TODO: remove this later, needs only for v31 for now
     # ------------------------------------------------------------------ #
@@ -463,21 +624,10 @@ def script(ctx: ScriptCtx) -> None:
             cwd=era_contracts_path / "tools" / "zksync-os-genesis-gen",
         )
 
-    # TODO: currently single-chain setup is disabled, instead it is a symlink to one of the chains from Multi-chain setup
-    #       this might change in the future
-    # # ------------------------------------------------------------------ #
-    # # Single-chain setup
-    # # ------------------------------------------------------------------ #
-    # init_ecosystem(ctx, "default", ["6565"])
-
     # ------------------------------------------------------------------ #
     # Multi-chain setup
     # ------------------------------------------------------------------ #
-    if Version(protocol_version) == Version(PROTOCOL_VERSION_CURRENT):
-        init_ecosystem(ctx, "multi_chain", ["6565", "6566"])
-
-    if Version(protocol_version) >= Version(PROTOCOL_VERSION_NEXT):
-        init_ecosystem(ctx, "multi_chain", ["6565", "6566", config.GATEWAY_CHAIN_ID])
+    init_ecosystem(ctx, setup, protocol_version)
 
     # ------------------------------------------------------------------ #
     # Update VK hash in prover config
