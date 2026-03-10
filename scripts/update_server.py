@@ -326,7 +326,7 @@ def init_ecosystem(
             utils.clean_dir(gateway_db)
             utils.remove_dir(ctx.workspace / "gateway-state.tar.gz")
             # Start gateway and migrate non-gateway chains on it
-            with utils.gateway(repo_path=ctx.repo_dir, db_path=gateway_db):
+            with utils.gateway(repo_path=ctx.repo_dir, db_path=gateway_db, protocol_version=protocol_version):
                 for chain in chains:
                     if chain == config.GATEWAY_CHAIN_ID:
                         continue

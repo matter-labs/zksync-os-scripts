@@ -296,6 +296,7 @@ def gateway(
     *,
     repo_path: Path,
     db_path: Path,
+    protocol_version: str,
 ):
     """
     Run Gateway
@@ -313,7 +314,7 @@ def gateway(
             "--release",
             "--",
             "--config",
-            "./local-chains/v31.0/gateway/config.yaml",
+            f"./local-chains/{protocol_version}/gateway/config.yaml",
         ],
         cwd=repo_path,
         env=new_env,
