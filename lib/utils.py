@@ -1,5 +1,6 @@
 import hashlib
 import gzip
+import json
 import tarfile
 import contextlib
 import re
@@ -291,6 +292,47 @@ def targz_dir(src: Path, *, dst: Path | None = None, keep_src: bool = False) -> 
     return dst
 
 
+def _wait_for_rpc(
+    proc: subprocess.Popen,
+    *,
+    url: str,
+    timeout: float = 60,
+    poll_interval: float = 1.0,
+) -> None:
+    """
+    Block until the JSON-RPC endpoint at *url* replies to an `eth_chainId`
+    request, or raise SystemExit if the process dies or the timeout expires.
+    """
+    deadline = time.monotonic() + timeout
+    payload = json.dumps(
+        {"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}
+    ).encode()
+
+    while time.monotonic() < deadline:
+        # Process died before the RPC came up
+        if proc.poll() is not None:
+            raise SystemExit(
+                f"Gateway exited (code {proc.returncode}) before its RPC became available"
+            )
+        try:
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                if resp.status == 200:
+                    logger.debug(f"Gateway RPC is up at {url}")
+                    return
+        except Exception:
+            pass
+        time.sleep(poll_interval)
+
+    raise SystemExit(
+        f"Gateway RPC at {url} did not become available within {timeout}s"
+    )
+
+
 @contextlib.contextmanager
 def gateway(
     *,
@@ -322,14 +364,7 @@ def gateway(
         text=True,
     )
 
-    # todo: check when gateway's RPC is up and running
-    time.sleep(15)
-
-    if proc.poll() not in (None, 0):
-        raise SystemExit(
-            f"Failed to start Gateway (exit {proc.returncode}); "
-            f"DB path: {db_path}"
-        )
+    _wait_for_rpc(proc, url=config.GATEWAY_DEFAULT_URL, timeout=60)
 
     try:
         yield proc
