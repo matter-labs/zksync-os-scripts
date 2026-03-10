@@ -337,7 +337,7 @@ def init_ecosystem(
                             --chain {chain}
                             --gateway-chain-name {config.GATEWAY_CHAIN_ID}
                             --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                            --gateway-rpc-url http://localhost:3052
+                            --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
                         """,
                         cwd=ecosystem_dir,
                     )
@@ -348,7 +348,7 @@ def init_ecosystem(
                             --chain {chain}
                             --gateway-chain-name {config.GATEWAY_CHAIN_ID}
                             --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                            --gateway-rpc-url http://localhost:3052
+                            --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
                             --deploy-paymaster=false
                         """,
                         cwd=ecosystem_dir,
