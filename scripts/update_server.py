@@ -353,9 +353,6 @@ def init_ecosystem(
                         """,
                         cwd=ecosystem_dir,
                     )
-            # Archive and persist gateway's DB as it's needed for local setup to function (L1 state contains some executed
-            # blocks from gateway).
-            ctx.sh(f"tar czvf gateway-state.tar.gz -C ./gateway-db .", cwd=ctx.workspace)
             utils.cp(ctx.workspace / "gateway-state.tar.gz", protocol_base / "gateway-state.tar.gz")
 
 

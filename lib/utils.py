@@ -1,5 +1,6 @@
 import hashlib
 import gzip
+import tarfile
 import contextlib
 import re
 import shutil
@@ -277,6 +278,19 @@ def anvil_dump_state(
             gz_path = gzip_file(l1_state_file, keep_src=False)
             logger.info(f"Compressed state -> {gz_path}")
 
+def targz_dir(src: Path, *, dst: Path | None = None, keep_src: bool = False) -> Path:
+    """Create a tar.gz archive of a directory."""
+    if dst is None:
+        dst = src.with_suffix(".tar.gz")
+    tmp = dst.with_suffix(".tmp")
+    with tarfile.open(tmp, "w:gz") as tar:
+        tar.add(src, arcname=src.name)
+    tmp.replace(dst)
+    if not keep_src:
+        shutil.rmtree(src, ignore_errors=True)
+    return dst
+
+
 @contextlib.contextmanager
 def gateway(
     *,
@@ -320,23 +334,27 @@ def gateway(
         pid = proc.pid
         if proc.poll() is not None:
             print(f"Gateway already stopped (pid={pid})")
-            return
-
-        print(f"Stopping Gateway (pid={pid})")
-        try:
-            proc.terminate()
-        except Exception:
-            pass
-
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            print("Gateway still alive; sending SIGKILL")
+        else:
+            print(f"Stopping Gateway (pid={pid})")
             try:
-                proc.kill()
+                proc.terminate()
             except Exception:
                 pass
-            _ = proc.wait(timeout=5)
+
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                print("Gateway still alive; sending SIGKILL")
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                _ = proc.wait(timeout=5)
+
+        # Compress after gateway has stopped and released the DB
+        if db_path.exists():
+            gz_path = targz_dir(db_path, keep_src=False)
+            logger.info(f"Compressed gateway DB -> {gz_path}")
 
 
 def addresses_from_wallets_yaml(data: dict) -> set[str]:
