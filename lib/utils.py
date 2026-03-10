@@ -321,6 +321,8 @@ def gateway(
         stdout=subprocess.DEVNULL,
         text=True,
     )
+
+    # todo: check when gateway's RPC is up and running
     time.sleep(15)
 
     if proc.poll() not in (None, 0):
