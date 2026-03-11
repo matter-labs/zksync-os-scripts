@@ -276,7 +276,7 @@ class GatewaySetup(EcosystemSetup):
         # Pre-build the server before starting the gateway
         ctx.sh("cargo build --release", cwd=ctx.repo_dir)
         utils.clean_dir(gateway_db)
-        utils.remove_dir(ctx.workspace / "gateway-state.tar.gz")
+        utils.remove_dir(ctx.workspace / "gateway-db.tar.gz")
 
         with utils.gateway(
             repo_path=ctx.repo_dir,
@@ -309,8 +309,8 @@ class GatewaySetup(EcosystemSetup):
                 )
 
         utils.cp(
-            ctx.workspace / "gateway-state.tar.gz",
-            protocol_base / "gateway-state.tar.gz",
+            ctx.workspace / "gateway-db.tar.gz",
+            protocol_base / "gateway-db.tar.gz",
         )
 
 

@@ -285,7 +285,7 @@ def targz_dir(src: Path, *, dst: Path | None = None, keep_src: bool = False) -> 
         dst = src.with_suffix(".tar.gz")
     tmp = dst.with_suffix(".tmp")
     with tarfile.open(tmp, "w:gz") as tar:
-        tar.add(src, arcname=src.name)
+        tar.add(src, arcname=".")
     tmp.replace(dst)
     if not keep_src:
         shutil.rmtree(src, ignore_errors=True)
