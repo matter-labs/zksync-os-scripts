@@ -89,6 +89,8 @@ def _create_and_init_chain(
     zkstack_bin: Path,
     ecosystem_dir: Path,
     chain: str,
+    *,
+    pause_deposits: bool = True,
 ) -> None:
     """Create, fund, and initialise a single chain on L1."""
     ctx.sh(
@@ -111,6 +113,7 @@ def _create_and_init_chain(
     )
     ctx.logger.debug(f"Funding accounts for chain {chain}...")
     fund_accounts(ctx, ecosystem_dir)
+    init_args = " --pause-deposits" if pause_deposits else ""
     ctx.sh(
         f"""
             {zkstack_bin}
@@ -119,8 +122,7 @@ def _create_and_init_chain(
               --deploy-paymaster=false
               --no-port-reallocation
               --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-              --skip-priority-txs
-              --pause-deposits
+              --skip-priority-txs{init_args}
         """,
         cwd=ecosystem_dir,
     )
@@ -325,6 +327,8 @@ class GatewaySetup(EcosystemSetup):
             cargo run --release --package zksync_os_generate_deposit --
             --bridgehub "{bridgehub_address}"
             --chain-id {self.gateway_chain_id}
+            --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+            --private-key {config.ANVIL_RICH_PRIVATE_KEY}
             --amount 100
             """
         )
@@ -577,8 +581,11 @@ def init_ecosystem(
                 _create_and_init_chain(ctx, zkstack_bin, ecosystem_dir, chain)
 
             # Create and initialise L1-settling chains (not migrated to gateway).
+            # Do not pause deposits so generate_deposit can submit L1->L2 tx.
             for chain in setup.get_l1_settling_chains():
-                _create_and_init_chain(ctx, zkstack_bin, ecosystem_dir, chain)
+                _create_and_init_chain(
+                    ctx, zkstack_bin, ecosystem_dir, chain, pause_deposits=False
+                )
 
             # Collect operator SKs from all user chains; used by GatewaySetup
             # to fund chain operators on the gateway via L1->Gateway deposits.
