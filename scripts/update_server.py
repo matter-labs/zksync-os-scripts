@@ -397,6 +397,7 @@ class GatewaySetup(EcosystemSetup):
                 --bridgehub "{bridgehub_address}"
                 --chain-id {chain}
                 --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                --private-key {config.ANVIL_RICH_PRIVATE_KEY}
                 --amount 100
                 """
             )
