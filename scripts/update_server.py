@@ -396,6 +396,7 @@ class GatewaySetup(EcosystemSetup):
                 cargo run --release --package zksync_os_generate_deposit --
                 --bridgehub "{bridgehub_address}"
                 --chain-id {chain}
+                --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
                 --amount 100
                 """
             )
