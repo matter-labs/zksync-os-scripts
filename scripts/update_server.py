@@ -84,6 +84,48 @@ def fund_accounts(ctx: ScriptCtx, ecosystem_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+def _create_and_init_chain(
+    ctx: ScriptCtx,
+    zkstack_bin: Path,
+    ecosystem_dir: Path,
+    chain: str,
+) -> None:
+    """Create, fund, and initialise a single chain on L1."""
+    ctx.sh(
+        f"""
+            {zkstack_bin}
+              chain create
+              --chain-name {chain}
+              --chain-id {chain}
+              --prover-mode no-proofs
+              --wallet-creation random
+              --l1-batch-commit-data-generator-mode rollup
+              --base-token-address 0x0000000000000000000000000000000000000001
+              --base-token-price-nominator 1
+              --base-token-price-denominator 1
+              --evm-emulator false
+              --set-as-default=false
+              --zksync-os
+        """,
+        cwd=ecosystem_dir,
+    )
+    ctx.logger.debug(f"Funding accounts for chain {chain}...")
+    fund_accounts(ctx, ecosystem_dir)
+    ctx.sh(
+        f"""
+            {zkstack_bin}
+              chain init
+              --chain {chain}
+              --deploy-paymaster=false
+              --no-port-reallocation
+              --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+              --skip-priority-txs
+              --pause-deposits
+        """,
+        cwd=ecosystem_dir,
+    )
+
+
 def _collect_operator_sks(ecosystem_dir: Path, chains: list[str]) -> list[str]:
     """Collect operator private keys (operator, prove_operator, execute_operator) for each chain."""
     sks: list[str] = []
@@ -463,6 +505,10 @@ def init_ecosystem(
                 """,
             cwd=ecosystems_dir,
         )
+        # NOTE: default/ serves dual purpose — it is read here as the CTM
+        # config source, and later written to with L1-settling chain configs
+        # (by write_l1_settling_configs).  This is safe because the read
+        # happens before the write within the same init_ecosystem call.
         ctx.sh(
             f"""
                 {zkstack_bin}
@@ -526,75 +572,11 @@ def init_ecosystem(
             for chain in setup.user_chains:
                 if chain == setup.initial_chain:
                     continue
-                ctx.sh(
-                    f"""
-                        {zkstack_bin}
-                          chain create
-                          --chain-name {chain}
-                          --chain-id {chain}
-                          --prover-mode no-proofs
-                          --wallet-creation random
-                          --l1-batch-commit-data-generator-mode rollup
-                          --base-token-address 0x0000000000000000000000000000000000000001
-                          --base-token-price-nominator 1
-                          --base-token-price-denominator 1
-                          --evm-emulator false
-                          --set-as-default=false
-                          --zksync-os
-                    """,
-                    cwd=ecosystem_dir,
-                )
-                ctx.logger.debug(f"Funding accounts for chain {chain}...")
-                fund_accounts(ctx, ecosystem_dir)
-                ctx.sh(
-                    f"""
-                        {zkstack_bin}
-                          chain init
-                          --chain {chain}
-                          --deploy-paymaster=false
-                          --no-port-reallocation
-                          --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                          --skip-priority-txs
-                          --pause-deposits
-                    """,
-                    cwd=ecosystem_dir,
-                )
+                _create_and_init_chain(ctx, zkstack_bin, ecosystem_dir, chain)
 
             # Create and initialise L1-settling chains (not migrated to gateway).
             for chain in setup.get_l1_settling_chains():
-                ctx.sh(
-                    f"""
-                        {zkstack_bin}
-                          chain create
-                          --chain-name {chain}
-                          --chain-id {chain}
-                          --prover-mode no-proofs
-                          --wallet-creation random
-                          --l1-batch-commit-data-generator-mode rollup
-                          --base-token-address 0x0000000000000000000000000000000000000001
-                          --base-token-price-nominator 1
-                          --base-token-price-denominator 1
-                          --evm-emulator false
-                          --set-as-default=false
-                          --zksync-os
-                    """,
-                    cwd=ecosystem_dir,
-                )
-                ctx.logger.debug(f"Funding accounts for L1-settling chain {chain}...")
-                fund_accounts(ctx, ecosystem_dir)
-                ctx.sh(
-                    f"""
-                        {zkstack_bin}
-                          chain init
-                          --chain {chain}
-                          --deploy-paymaster=false
-                          --no-port-reallocation
-                          --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                          --skip-priority-txs
-                          --pause-deposits
-                    """,
-                    cwd=ecosystem_dir,
-                )
+                _create_and_init_chain(ctx, zkstack_bin, ecosystem_dir, chain)
 
             # Collect operator SKs from all user chains; used by GatewaySetup
             # to fund chain operators on the gateway via L1->Gateway deposits.
@@ -701,6 +683,8 @@ def script(ctx: ScriptCtx) -> None:
                 l1_settling_chains,
             )
         else:
+            # Without a gateway every user chain already settles on L1,
+            # so l1_settling_chains are not needed.
             setup = NoGatewaySetup("multi_chain", user_chains)
     else:
         raise ValueError(
