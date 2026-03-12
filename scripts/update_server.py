@@ -192,6 +192,10 @@ class EcosystemSetup(ABC):
         gateway, migrate chains, and archive the gateway DB.
         """
 
+    def get_l1_settling_chains(self) -> list[str]:
+        """Return chain IDs that settle directly on L1 (not via gateway)."""
+        return []
+
     def write_l1_settling_configs(
         self,
         ctx: ScriptCtx,
@@ -234,6 +238,9 @@ class GatewaySetup(EcosystemSetup):
     @property
     def all_chains(self) -> list[str]:
         return self.user_chains + [self.gateway_chain_id]
+
+    def get_l1_settling_chains(self) -> list[str]:
+        return list(self.l1_settling_chains)
 
     def use_blob_operator_for(self, chain: str) -> bool:
         # Gateway settles on L1, so it uses the blob operator
@@ -348,17 +355,19 @@ class GatewaySetup(EcosystemSetup):
                 f"Writing L1-settling config for chain {chain} "
                 f"to {default_base}..."
             )
-            _write_l1_chain_base_config(
-                default_base / f"config.yaml", chain, protocol_version
-            )
+            # Create a seed config with static fields (chain_id, genesis path,
+            # price config), then patch in the dynamic contract addresses and
+            # operator keys via update_chain_config_yaml.
+            config_yaml = default_base / f"config_{chain}.yaml"
+            _write_l1_chain_base_config(config_yaml, chain, protocol_version)
             edit_server.update_chain_config_yaml(
-                default_base / "config.yaml",
+                config_yaml,
                 use_blob_operator=False,
                 contracts_yaml=contracts_yaml,
                 wallets_yaml=wallets_yaml,
             )
-            utils.cp(wallets_yaml, default_base / "wallets.yaml")
-            utils.cp(contracts_yaml, default_base / "contracts.yaml")
+            utils.cp(wallets_yaml, default_base / f"wallets_{chain}.yaml")
+            utils.cp(contracts_yaml, default_base / f"contracts_{chain}.yaml")
 
     def run_gateway_phase(
         self,
@@ -548,7 +557,7 @@ def init_ecosystem(
                 )
 
             # Create and initialise L1-settling chains (not migrated to gateway).
-            for chain in getattr(setup, "l1_settling_chains", []):
+            for chain in setup.get_l1_settling_chains():
                 ctx.sh(
                     f"""
                         {zkstack_bin}
