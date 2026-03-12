@@ -101,23 +101,44 @@ def _collect_operator_sks(ecosystem_dir: Path, chains: list[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 # L1-settling chain config helper
 # ---------------------------------------------------------------------------
-def _write_l1_chain_base_config(
-    yaml_path: Path, chain_id: str, protocol_version: str
+def _write_l1_chain_config(
+    yaml_path: Path,
+    chain_id: str,
+    protocol_version: str,
+    contracts_yaml: Path,
+    wallets_yaml: Path,
 ) -> None:
-    """Create a minimal chain config YAML for an L1-settling chain."""
+    """Build and write a complete chain config YAML for an L1-settling chain."""
     yaml_path.parent.mkdir(parents=True, exist_ok=True)
+
+    wallets = utils.load_yaml(wallets_yaml)
+    operator_keys = {}
+    for wallet_name, yaml_key in {
+        "operator": "operator_commit_sk",
+        "prove_operator": "operator_prove_sk",
+        "execute_operator": "operator_execute_sk",
+    }.items():
+        entry = wallets.get(wallet_name)
+        if not isinstance(entry, dict) or not entry.get("private_key"):
+            raise SystemExit(
+                f"Missing private key for '{wallet_name}' in {wallets_yaml}"
+            )
+        operator_keys[yaml_key] = utils.normalize_hex(
+            entry["private_key"], length=64
+        )
+
     data = {
         "genesis": {
-            "bridgehub_address": "",
-            "bytecode_supplier_address": "",
+            "bridgehub_address": edit_server.get_contract_address(
+                contracts_yaml, "bridgehub_proxy_addr"
+            ),
+            "bytecode_supplier_address": edit_server.get_contract_address(
+                contracts_yaml, "l1_bytecodes_supplier_addr"
+            ),
             "genesis_input_path": f"./local-chains/{protocol_version}/genesis.json",
             "chain_id": int(chain_id),
         },
-        "l1_sender": {
-            "operator_commit_sk": "",
-            "operator_prove_sk": "",
-            "operator_execute_sk": "",
-        },
+        "l1_sender": operator_keys,
         "external_price_api_client": {
             "source": "Forced",
             "forced_prices": {
@@ -355,16 +376,12 @@ class GatewaySetup(EcosystemSetup):
                 f"Writing L1-settling config for chain {chain} "
                 f"to {default_base}..."
             )
-            # Create a seed config with static fields (chain_id, genesis path,
-            # price config), then patch in the dynamic contract addresses and
-            # operator keys via update_chain_config_yaml.
-            config_yaml = default_base / f"config_{chain}.yaml"
-            _write_l1_chain_base_config(config_yaml, chain, protocol_version)
-            edit_server.update_chain_config_yaml(
-                config_yaml,
-                use_blob_operator=False,
-                contracts_yaml=contracts_yaml,
-                wallets_yaml=wallets_yaml,
+            _write_l1_chain_config(
+                default_base / f"config_{chain}.yaml",
+                chain,
+                protocol_version,
+                contracts_yaml,
+                wallets_yaml,
             )
             utils.cp(wallets_yaml, default_base / f"wallets_{chain}.yaml")
             utils.cp(contracts_yaml, default_base / f"contracts_{chain}.yaml")
