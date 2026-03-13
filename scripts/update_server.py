@@ -250,6 +250,7 @@ class EcosystemSetup(ABC):
     def write_l1_settling_configs(
         self,
         ctx: ScriptCtx,
+        zkstack_bin: Path,
         ecosystem_dir: Path,
         protocol_version: str,
         protocol_base: Path,
@@ -372,6 +373,7 @@ class GatewaySetup(EcosystemSetup):
     def write_l1_settling_configs(
         self,
         ctx: ScriptCtx,
+        zkstack_bin: Path,
         ecosystem_dir: Path,
         protocol_version: str,
         protocol_base: Path,
@@ -389,6 +391,17 @@ class GatewaySetup(EcosystemSetup):
 
             bridgehub_address = edit_server.get_contract_address(
                 contracts_yaml, "bridgehub_proxy_addr"
+            )
+
+            ctx.logger.info(f"Unpausing deposits for L1-settling chain {chain}...")
+            ctx.sh(
+                f"""
+                {zkstack_bin}
+                chain unpause-deposits
+                --chain {chain}
+                --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                """,
+                cwd=ecosystem_dir,
             )
 
             ctx.logger.info(
@@ -628,7 +641,7 @@ def init_ecosystem(
             )
 
             setup.write_l1_settling_configs(
-                ctx, ecosystem_dir, protocol_version, protocol_base
+                ctx, zkstack_bin, ecosystem_dir, protocol_version, protocol_base
             )
 
 
