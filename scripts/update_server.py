@@ -287,6 +287,15 @@ class GatewaySetup(EcosystemSetup):
                 ctx.sh(
                     f"""
                     {zkstack_bin}
+                    chain gateway notify-about-to-gateway-update
+                    --chain {chain}
+                    --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                    """,
+                    cwd=ecosystem_dir,
+                )
+                ctx.sh(
+                    f"""
+                    {zkstack_bin}
                     chain gateway migrate-to-gateway
                     --chain {chain}
                     --gateway-chain-name {self.gateway_chain_id}
@@ -619,7 +628,6 @@ def script(ctx: ScriptCtx) -> None:
             f"""
             cargo run --
               --output-file {ctx.repo_dir / "local-chains" / protocol_version / "genesis.json"}
-              --execution-version {execution_version}
             """,
             cwd=era_contracts_path / "tools" / "zksync-os-genesis-gen",
         )
