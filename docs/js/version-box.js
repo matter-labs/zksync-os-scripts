@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Get the base URL from the mdBook configuration
-    const baseUrl = document.location.origin + '/zksync-os-scripts/core';
+    const baseUrl = document.location.origin + '/zksync-os-scripts';
 
     // Function to create version selector
     function createVersionSelector(versions) {
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function () {
         versionSelector.addEventListener('change', function () {
             const selectedVersion = versionSelector.value;
             // Redirect to the selected version URL
-            window.location.href = '/zksync-os-scripts/core' + selectedVersion;
+            window.location.href = '/zksync-os-scripts/' + selectedVersion;
         });
 
         return versionSelector;

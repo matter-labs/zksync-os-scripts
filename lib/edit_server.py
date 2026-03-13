@@ -8,17 +8,20 @@ def update_rust_const(
     file: Path | str,
     const_name: str,
     new_value: str,
+    *,
+    value_is_expr: bool = False,
 ) -> None:
     """
-    Update a Rust `&str` constant in a file.
+    Update a Rust constant in a file.
 
-    Expected pattern (whitespace is flexible):
+    By default, updates `&str` constants:
 
         pub const NAME: &str = "old";
         pub const NAME: &'static str = "old";
 
-    Only the string literal value ("old") is replaced with `new_value`.
-    If the constant cannot be found, the script fails with a clear message.
+    With `value_is_expr=True`, updates expression constants:
+
+        pub const NAME: SomeType = some_expr(...);
 
     Parameters
     ----------
@@ -27,8 +30,8 @@ def update_rust_const(
     const_name:
         Name of the constant, e.g. "BRIDGEHUB_ADDRESS".
     new_value:
-        New string literal content (WITHOUT surrounding quotes), e.g.
-        "0xabc123...".
+        New constant value. For string constants, pass value without quotes.
+        For expression constants (`value_is_expr=True`), pass the full RHS expression.
     """
     path = Path(file)
     if not path.is_file():
@@ -39,26 +42,37 @@ def update_rust_const(
 
     text = path.read_text(encoding="utf-8")
 
-    # Regex explanation:
-    #
-    # (?m)               - multiline mode (^ and $ match per line)
-    # ^\s*               - optional leading spaces at the start of the line
-    # pub\s+const\s+     - `pub const` with flexible spaces
-    # {const_name}       - the constant name (escaped)
-    # \s*:\s*&'?static?\s*str
-    #   or \s*:\s*&str   - we allow `&str` or `&'static str`
-    # \s*=\s*"           - `= "`
-    # (?P<value>[^"]*)   - the old value (anything up to the closing quote)
-    # ";                 - closing quote and semicolon
-    pattern = re.compile(
-        rf"""(?m)
-            ^
-            (?P<prefix>\s*pub\s+const\s+{re.escape(const_name)}\s*:\s*&(?:'static\s*)?str\s*=\s*")
-            (?P<value>[^"]*)
-            (?P<suffix>"\s*;)
-            """,
-        re.VERBOSE,
-    )
+    if value_is_expr:
+        pattern = re.compile(
+            rf"""(?m)
+                ^
+                (?P<prefix>\s*pub\s+const\s+{re.escape(const_name)}\s*:\s*[^=]+=\s*)
+                (?P<value>[^;]+)
+                (?P<suffix>\s*;)
+                """,
+            re.VERBOSE,
+        )
+    else:
+        # Regex explanation:
+        #
+        # (?m)               - multiline mode (^ and $ match per line)
+        # ^\s*               - optional leading spaces at the start of the line
+        # pub\s+const\s+     - `pub const` with flexible spaces
+        # {const_name}       - the constant name (escaped)
+        # \s*:\s*&'?static?\s*str
+        #   or \s*:\s*&str   - we allow `&str` or `&'static str`
+        # \s*=\s*"           - `= "`
+        # (?P<value>[^"]*)   - the old value (anything up to the closing quote)
+        # ";                 - closing quote and semicolon
+        pattern = re.compile(
+            rf"""(?m)
+                ^
+                (?P<prefix>\s*pub\s+const\s+{re.escape(const_name)}\s*:\s*&(?:'static\s*)?str\s*=\s*")
+                (?P<value>[^"]*)
+                (?P<suffix>"\s*;)
+                """,
+            re.VERBOSE,
+        )
 
     def _repl(match: re.Match) -> str:
         # We ignore the old value and inject new_value between prefix and suffix
@@ -67,7 +81,11 @@ def update_rust_const(
     new_text, count = pattern.subn(_repl, text)
 
     if count == 0:
-        # Nothing matched – likely a format change or wrong const name.
+        if value_is_expr:
+            raise Exception(
+                f"Failed to update {const_name} in {path} "
+                f"(matching `pub const {const_name}: <type> = <expr>;` not found)"
+            )
         raise Exception(
             f"Failed to update {const_name} in {path} "
             f'(matching `pub const {const_name}: &str = "...";` not found)'
