@@ -395,6 +395,12 @@ def gateway(
             logger.info(f"Compressed gateway DB -> {gz_path}")
 
 
+def sh_output(argv: list[str]) -> str:
+    """Run a command and return its stripped stdout. Raises on non-zero exit."""
+    result = subprocess.run(argv, capture_output=True, text=True, check=True)
+    return result.stdout.strip()
+
+
 def addresses_from_wallets_yaml(data: dict) -> set[str]:
     """
     wallets.yaml format:
