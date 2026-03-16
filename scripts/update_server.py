@@ -240,11 +240,10 @@ class EcosystemSetup(ABC):
         self, chain: str, protocol_base: Path
     ) -> tuple[Path, Path, Path]:
         """Return (config_yaml, wallets_dst, contracts_dst) for a chain."""
-        d = protocol_base / self.ecosystem_name
-        suffix = f"_{chain}" if len(self.user_chains) > 1 else ""
+        d = protocol_base / self.ecosystem_name / chain
         return (
-            d / f"chain_{chain}.yaml",
-            d / f"wallets{suffix}.yaml",
+            d / "config.yaml",
+            d / "wallets.yaml",
             d / f"contracts{suffix}.yaml",
         )
 
