@@ -423,7 +423,7 @@ class GatewaySetup(EcosystemSetup):
                 f"Writing L1-settling config for chain {chain} "
                 f"to {default_base}..."
             )
-            config_yaml = default_base / f"config_{chain}.yaml"
+            config_yaml = default_base / "config.yaml"
             _write_l1_chain_base_config(config_yaml, chain, protocol_version)
             edit_server.update_chain_config_yaml(
                 config_yaml,
@@ -431,8 +431,8 @@ class GatewaySetup(EcosystemSetup):
                 contracts_yaml=contracts_yaml,
                 wallets_yaml=wallets_yaml,
             )
-            utils.cp(wallets_yaml, default_base / f"wallets_{chain}.yaml")
-            utils.cp(contracts_yaml, default_base / f"contracts_{chain}.yaml")
+            utils.cp(wallets_yaml, default_base / "wallets.yaml")
+            utils.cp(contracts_yaml, default_base / "contracts.yaml")
 
     def run_gateway_phase(
         self,
@@ -686,8 +686,8 @@ def script(ctx: ScriptCtx) -> None:
     #   v31.0, USE_GATEWAY=true  → GatewaySetup   (default for v31.0)
     #   v31.0, USE_GATEWAY=false → NoGatewaySetup (opt-out for testing)
     # ------------------------------------------------------------------ #
-    user_chains = ["6565", "6566"]
-    l1_settling_chains = ["6567"]
+    user_chains = ["6566", "6567"]
+    l1_settling_chains = ["6565"]
 
     if Version(protocol_version) == Version(PROTOCOL_VERSION_CURRENT):
         setup: EcosystemSetup = NoGatewaySetup("multi_chain", user_chains)
