@@ -616,8 +616,13 @@ def init_ecosystem(
                 name_suffix = (
                     f"_{chain}" if setup.ecosystem_name == "multi_chain" else ""
                 )
+                chain_config_yaml = base / f"chain_{chain}.yaml"
+                if not chain_config_yaml.exists():
+                    _write_l1_chain_base_config(
+                        chain_config_yaml, chain, protocol_version
+                    )
                 edit_server.update_chain_config_yaml(
-                    base / f"chain_{chain}.yaml",
+                    chain_config_yaml,
                     use_blob_operator=setup.use_blob_operator_for(chain),
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
