@@ -244,7 +244,7 @@ class EcosystemSetup(ABC):
         return (
             d / "config.yaml",
             d / "wallets.yaml",
-            d / f"contracts{suffix}.yaml",
+            d / "contracts.yaml",
         )
 
     def use_blob_operator_for(self, chain: str) -> bool:
