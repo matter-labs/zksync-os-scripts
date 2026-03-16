@@ -143,39 +143,66 @@ def _collect_operator_sks(ecosystem_dir: Path, chains: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# L1-settling chain config helper
+# Chain config helpers
 # ---------------------------------------------------------------------------
-def _write_l1_chain_base_config(
-    yaml_path: Path, chain_id: str, protocol_version: str
+def _write_chain_base_config(
+    yaml_path: Path,
+    chain_id: str,
+    protocol_version: str,
+    *,
+    gateway_rpc_url: str | None = None,
+    ephemeral_state: str | None = None,
+    rpc_port: int | None = None,
 ) -> None:
     """
-    Create a base chain config YAML for an L1-settling chain.
+    Create a base chain config YAML.
 
-    This mirrors the role of the pre-existing template files that other chains
-    have committed in zksync-os-server (e.g. multi_chain/chain_6565.yaml).
-    The dynamic fields (contract addresses, operator keys) are filled in
-    afterwards by edit_server.update_chain_config_yaml, same as every other chain.
+    When *gateway_rpc_url* is provided the config targets a gateway-settling
+    chain (adds ``general``, ``l1_sender.pubdata_mode``, and ``rpc`` sections).
+    Otherwise it produces an L1-settling chain config.
+
+    Dynamic fields (contract addresses, operator keys) are filled in
+    afterwards by ``edit_server.update_chain_config_yaml``.
     """
     yaml_path.parent.mkdir(parents=True, exist_ok=True)
-    data = {
-        "genesis": {
-            "bridgehub_address": "",
-            "bytecode_supplier_address": "",
-            "genesis_input_path": f"./local-chains/{protocol_version}/genesis.json",
-            "chain_id": int(chain_id),
-        },
-        "l1_sender": {
-            "operator_commit_sk": "",
-            "operator_prove_sk": "",
-            "operator_execute_sk": "",
-        },
-        "external_price_api_client": {
-            "source": "Forced",
-            "forced_prices": {
-                "0x0000000000000000000000000000000000000001": 3000,
-            },
+    data: dict = {}
+
+    general: dict = {"ephemeral": True}
+    if gateway_rpc_url is not None:
+        general["gateway_rpc_url"] = gateway_rpc_url
+    if ephemeral_state is not None:
+        general["ephemeral_state"] = ephemeral_state
+    data["general"] = general
+
+    data["genesis"] = {
+        "bridgehub_address": "",
+        "bytecode_supplier_address": "",
+        "genesis_input_path": f"./local-chains/{protocol_version}/genesis.json",
+        "chain_id": int(chain_id),
+    }
+
+    l1_sender: dict = {}
+    if gateway_rpc_url is not None:
+        l1_sender["pubdata_mode"] = "RelayedL2Calldata"
+    else:
+        l1_sender["pubdata_mode"] = "Blobs"
+    l1_sender.update({
+        "operator_commit_sk": "",
+        "operator_prove_sk": "",
+        "operator_execute_sk": "",
+    })
+    data["l1_sender"] = l1_sender
+
+    if rpc_port is not None:
+        data["rpc"] = {"address": f"0.0.0.0:{rpc_port}"}
+
+    data["external_price_api_client"] = {
+        "source": "Forced",
+        "forced_prices": {
+            "0x0000000000000000000000000000000000000001": 3000,
         },
     }
+
     with yaml_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
         f.write("\n")
@@ -243,6 +270,14 @@ class EcosystemSetup(ABC):
         gateway, migrate chains, and archive the gateway DB.
         """
 
+    def ensure_chain_base_config(
+        self, yaml_path: Path, chain: str, protocol_version: str
+    ) -> None:
+        """Create base chain config YAML if it doesn't already exist."""
+        if yaml_path.exists():
+            return
+        _write_chain_base_config(yaml_path, chain, protocol_version)
+
     def get_l1_settling_chains(self) -> list[str]:
         """Return chain IDs that settle directly on L1 (not via gateway)."""
         return []
@@ -294,6 +329,38 @@ class GatewaySetup(EcosystemSetup):
     def get_l1_settling_chains(self) -> list[str]:
         return list(self.l1_settling_chains)
 
+    def _user_chain_rpc_port(self, chain: str) -> int:
+        """RPC port for a user chain, skipping the gateway port (3052)."""
+        idx = self.user_chains.index(chain)
+        port = 3051 + idx
+        if port >= 3052:
+            port += 1
+        return port
+
+    def ensure_chain_base_config(
+        self, yaml_path: Path, chain: str, protocol_version: str
+    ) -> None:
+        if yaml_path.exists():
+            return
+        if chain in self.user_chains:
+            _write_chain_base_config(
+                yaml_path,
+                chain,
+                protocol_version,
+                gateway_rpc_url=config.GATEWAY_DEFAULT_URL,
+                rpc_port=self._user_chain_rpc_port(chain),
+            )
+        elif chain == self.gateway_chain_id:
+            _write_chain_base_config(
+                yaml_path,
+                chain,
+                protocol_version,
+                ephemeral_state=f"./local-chains/{protocol_version}/gateway-db.tar.gz",
+                rpc_port=3052,
+            )
+        else:
+            _write_chain_base_config(yaml_path, chain, protocol_version)
+
     def use_blob_operator_for(self, chain: str) -> bool:
         # Gateway settles on L1, so it uses the blob operator
         return chain == self.gateway_chain_id
@@ -310,7 +377,16 @@ class GatewaySetup(EcosystemSetup):
     ) -> None:
         gateway_base = protocol_base / "gateway"
 
-        # Keep a separate gateway/config.yaml in sync
+        gateway_config = gateway_base / "config.yaml"
+        if not gateway_config.exists():
+            pv = protocol_base.name
+            _write_chain_base_config(
+                gateway_config,
+                self.gateway_chain_id,
+                pv,
+                ephemeral_state=f"./local-chains/{pv}/gateway-db.tar.gz",
+                rpc_port=3052,
+            )
         edit_server.update_chain_config_yaml(
             gateway_base / "config.yaml",
             use_blob_operator=True,
@@ -424,7 +500,7 @@ class GatewaySetup(EcosystemSetup):
                 f"to {default_base}..."
             )
             config_yaml = default_base / "config.yaml"
-            _write_l1_chain_base_config(config_yaml, chain, protocol_version)
+            _write_chain_base_config(config_yaml, chain, protocol_version)
             edit_server.update_chain_config_yaml(
                 config_yaml,
                 use_blob_operator=False,
@@ -617,10 +693,9 @@ def init_ecosystem(
                     f"_{chain}" if setup.ecosystem_name == "multi_chain" else ""
                 )
                 chain_config_yaml = base / f"chain_{chain}.yaml"
-                if not chain_config_yaml.exists():
-                    _write_l1_chain_base_config(
-                        chain_config_yaml, chain, protocol_version
-                    )
+                setup.ensure_chain_base_config(
+                    chain_config_yaml, chain, protocol_version
+                )
                 edit_server.update_chain_config_yaml(
                     chain_config_yaml,
                     use_blob_operator=setup.use_blob_operator_for(chain),
@@ -777,6 +852,12 @@ def script(ctx: ScriptCtx) -> None:
             """,
             cwd=zksync_era_path / "zkstack_cli",
         )
+
+    # ------------------------------------------------------------------ #
+    # Clean generated artifacts (keep READMEs)
+    # ------------------------------------------------------------------ #
+    protocol_base = ctx.repo_dir / "local-chains" / protocol_version
+    utils.clean_dir_keep_readmes(protocol_base)
 
     # ------------------------------------------------------------------ #
     # Generate genesis.json
