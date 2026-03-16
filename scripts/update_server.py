@@ -236,8 +236,20 @@ class EcosystemSetup(ABC):
         """All chains whose configs must be written (may include a gateway chain)."""
         return list(self.user_chains)
 
+    def chain_output_paths(
+        self, chain: str, protocol_base: Path
+    ) -> tuple[Path, Path, Path]:
+        """Return (config_yaml, wallets_dst, contracts_dst) for a chain."""
+        d = protocol_base / self.ecosystem_name
+        suffix = f"_{chain}" if len(self.user_chains) > 1 else ""
+        return (
+            d / f"chain_{chain}.yaml",
+            d / f"wallets{suffix}.yaml",
+            d / f"contracts{suffix}.yaml",
+        )
+
     def use_blob_operator_for(self, chain: str) -> bool:
-        """Return True if chain_{chain}.yaml should use the blob operator key."""
+        """Return True if chain config should use the blob operator key."""
         return False
 
     def on_initial_chain_ready(
@@ -326,6 +338,21 @@ class GatewaySetup(EcosystemSetup):
     def all_chains(self) -> list[str]:
         return self.user_chains + [self.gateway_chain_id]
 
+    def chain_dir_name(self, chain: str) -> str:
+        """Map a chain ID to its per-chain directory name."""
+        if chain == self.gateway_chain_id:
+            return "gateway"
+        if chain in self.l1_settling_chains:
+            return "l1_settling"
+        idx = self.user_chains.index(chain)
+        return f"gateway_settling_{chr(ord('a') + idx)}"
+
+    def chain_output_paths(
+        self, chain: str, protocol_base: Path
+    ) -> tuple[Path, Path, Path]:
+        d = protocol_base / self.chain_dir_name(chain)
+        return (d / "config.yaml", d / "wallets.yaml", d / "contracts.yaml")
+
     def get_l1_settling_chains(self) -> list[str]:
         return list(self.l1_settling_chains)
 
@@ -355,7 +382,6 @@ class GatewaySetup(EcosystemSetup):
                 yaml_path,
                 chain,
                 protocol_version,
-                ephemeral_state=f"./local-chains/{protocol_version}/gateway-db.tar.gz",
                 rpc_port=3052,
             )
         else:
@@ -375,25 +401,6 @@ class GatewaySetup(EcosystemSetup):
         chain_operator_sks: list[str],
         protocol_base: Path,
     ) -> None:
-        gateway_base = protocol_base / "gateway"
-
-        gateway_config = gateway_base / "config.yaml"
-        if not gateway_config.exists():
-            pv = protocol_base.name
-            _write_chain_base_config(
-                gateway_config,
-                self.gateway_chain_id,
-                pv,
-                ephemeral_state=f"./local-chains/{pv}/gateway-db.tar.gz",
-                rpc_port=3052,
-            )
-        edit_server.update_chain_config_yaml(
-            gateway_base / "config.yaml",
-            use_blob_operator=True,
-            contracts_yaml=contracts_yaml,
-            wallets_yaml=wallets_yaml,
-        )
-
         bridgehub_address = edit_server.get_contract_address(
             contracts_yaml, "bridgehub_proxy_addr"
         )
@@ -454,9 +461,7 @@ class GatewaySetup(EcosystemSetup):
         protocol_version: str,
         protocol_base: Path,
     ) -> None:
-        """Generate deposit txs and write configs for L1-settling chains to default/."""
-        default_base = protocol_base / "default"
-
+        """Generate deposit txs and write configs for L1-settling chains."""
         for chain in self.l1_settling_chains:
             contracts_yaml = (
                 ecosystem_dir / "chains" / chain / "configs" / "contracts.yaml"
@@ -495,20 +500,22 @@ class GatewaySetup(EcosystemSetup):
                 """
             )
 
+            config_dst, wallets_dst, contracts_dst = (
+                self.chain_output_paths(chain, protocol_base)
+            )
             ctx.logger.info(
                 f"Writing L1-settling config for chain {chain} "
-                f"to {default_base}..."
+                f"to {config_dst.parent}..."
             )
-            config_yaml = default_base / "config.yaml"
-            _write_chain_base_config(config_yaml, chain, protocol_version)
+            _write_chain_base_config(config_dst, chain, protocol_version)
             edit_server.update_chain_config_yaml(
-                config_yaml,
+                config_dst,
                 use_blob_operator=False,
                 contracts_yaml=contracts_yaml,
                 wallets_yaml=wallets_yaml,
             )
-            utils.cp(wallets_yaml, default_base / "wallets.yaml")
-            utils.cp(contracts_yaml, default_base / "contracts.yaml")
+            utils.cp(wallets_yaml, wallets_dst)
+            utils.cp(contracts_yaml, contracts_dst)
 
     def run_gateway_phase(
         self,
@@ -560,6 +567,14 @@ class GatewaySetup(EcosystemSetup):
             protocol_base / "gateway-db.tar.gz",
         )
 
+        ephemeral_state = f"./local-chains/{protocol_version}/gateway-db.tar.gz"
+        cfg = protocol_base / "gateway" / "config.yaml"
+        data = utils.load_yaml(cfg)
+        data.setdefault("general", {})["ephemeral_state"] = ephemeral_state
+        with cfg.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
+            f.write("\n")
+
 
 # ---------------------------------------------------------------------------
 # Main ecosystem orchestration
@@ -576,7 +591,6 @@ def init_ecosystem(
     ecosystems_dir = ctx.workspace / "ecosystems"
     ecosystem_dir = ecosystems_dir / setup.ecosystem_name
     protocol_base = ctx.repo_dir / "local-chains" / protocol_version
-    base = protocol_base / setup.ecosystem_name
 
     with ctx.section(f"Initialize {setup.ecosystem_name} ecosystem", expected=120):
         utils.clean_dir(ecosystem_dir)
@@ -600,20 +614,21 @@ def init_ecosystem(
                 """,
             cwd=ecosystems_dir,
         )
-        # NOTE: default/ serves dual purpose — it is read here as the CTM
-        # config source, and later written to with L1-settling chain configs
-        # (by write_l1_settling_configs).  This is safe because the read
-        # happens before the write within the same init_ecosystem call.
+        # ctm set-ctm-contracts only checks the directory exists; no files
+        # are read from it during this script's execution.
+        ctm_defaults = protocol_base / "default"
+        ctm_defaults.mkdir(parents=True, exist_ok=True)
         ctx.sh(
             f"""
                 {zkstack_bin}
                   ctm set-ctm-contracts
                   --contracts-src-path {era_contracts_path}
-                  --default-configs-src-path {protocol_base / "default"}
+                  --default-configs-src-path {ctm_defaults}
                   --zksync-os
                 """,
             cwd=ecosystem_dir,
         )
+        utils.remove_dir(ctm_defaults)
         # Remove default era chain (non zksync-os)
         utils.clean_dir(ecosystem_dir / "chains")
 
@@ -689,21 +704,20 @@ def init_ecosystem(
                 chain_wallets_yaml = (
                     ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
                 )
-                name_suffix = (
-                    f"_{chain}" if setup.ecosystem_name == "multi_chain" else ""
+                config_dst, wallets_dst, contracts_dst = (
+                    setup.chain_output_paths(chain, protocol_base)
                 )
-                chain_config_yaml = base / f"chain_{chain}.yaml"
                 setup.ensure_chain_base_config(
-                    chain_config_yaml, chain, protocol_version
+                    config_dst, chain, protocol_version
                 )
                 edit_server.update_chain_config_yaml(
-                    chain_config_yaml,
+                    config_dst,
                     use_blob_operator=setup.use_blob_operator_for(chain),
                     contracts_yaml=contracts_yaml,
                     wallets_yaml=chain_wallets_yaml,
                 )
-                utils.cp(chain_wallets_yaml, base / f"wallets{name_suffix}.yaml")
-                utils.cp(contracts_yaml, base / f"contracts{name_suffix}.yaml")
+                utils.cp(chain_wallets_yaml, wallets_dst)
+                utils.cp(contracts_yaml, contracts_dst)
 
                 if chain == setup.initial_chain:
                     setup.on_initial_chain_ready(
