@@ -330,7 +330,7 @@ class GatewaySetup(EcosystemSetup):
                     ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
                 )
                 operator_sk = utils.normalize_hex(
-                    chain_wallets["operator"]["private_key"]
+                    chain_wallets["execute_operator"]["private_key"]
                 )
 
                 ctx.logger.info(
