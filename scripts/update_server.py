@@ -613,8 +613,8 @@ def init_ecosystem(
                 """,
             cwd=ecosystems_dir,
         )
-        # ctm set-ctm-contracts only checks the directory exists; no files
-        # are read from it during this script's execution.
+        # ctm set-ctm-contracts saves this path; subsequent zkstack commands
+        # (ecosystem init, chain create) read from it. Cleaned up at the end.
         ctm_defaults = protocol_base / "default"
         ctm_defaults.mkdir(parents=True, exist_ok=True)
         ctx.sh(
@@ -627,7 +627,6 @@ def init_ecosystem(
                 """,
             cwd=ecosystem_dir,
         )
-        utils.remove_dir(ctm_defaults)
         # Remove default era chain (non zksync-os)
         utils.clean_dir(ecosystem_dir / "chains")
 
@@ -736,6 +735,8 @@ def init_ecosystem(
             setup.write_l1_settling_configs(
                 ctx, zkstack_bin, ecosystem_dir, protocol_version, protocol_base
             )
+
+    utils.remove_dir(protocol_base / "default")
 
 
 # ---------------------------------------------------------------------------
