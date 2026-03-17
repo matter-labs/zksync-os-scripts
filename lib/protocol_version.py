@@ -35,8 +35,8 @@ PROTOCOL_TOOLCHAINS: dict[str, Toolchain] = {
     ),
     PROTOCOL_V31_0: Toolchain(
         yarn_version="1.22",
-        execution_version="5",  # TODO switch to 6 when supported
-        proving_version="6",  # TODO switch to 7 when supported
+        execution_version="6",
+        proving_version="7",
         anvil_version="1.5.1",
         cast_forge_version="1.3.5",
         cargo_version="1.89.0",
