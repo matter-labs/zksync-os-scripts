@@ -283,7 +283,8 @@ class GatewaySetup(EcosystemSetup):
             db_path=gateway_db,
             protocol_version=protocol_version,
         ):
-            for chain in self.user_chains:
+            for chain_idx, chain in enumerate(self.user_chains):
+                l2_rpc_url = config.L2_RPC_URLS[chain_idx]
                 ctx.sh(
                     f"""
                     {zkstack_bin}
@@ -368,6 +369,39 @@ class GatewaySetup(EcosystemSetup):
                     --private-key {operator_sk}
                     --rpc-url "{config.GATEWAY_DEFAULT_URL}"
                     """
+                )
+
+                # Migrate token balances from L2 to gateway so the gateway
+                # is aware of all bridged tokens on the migrated chain.
+                ctx.logger.info(
+                    f"Initiating token balance migration for chain {chain}..."
+                )
+                ctx.sh(
+                    f"""
+                    {zkstack_bin}
+                    chain gateway initiate-token-balance-migration
+                    --chain {chain}
+                    --gateway-chain-name {self.gateway_chain_id}
+                    --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                    --l2-rpc-url="{l2_rpc_url}"
+                    --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
+                    """,
+                    cwd=ecosystem_dir,
+                )
+                ctx.logger.info(
+                    f"Finalizing token balance migration for chain {chain}..."
+                )
+                ctx.sh(
+                    f"""
+                    {zkstack_bin}
+                    chain gateway finalize-token-balance-migration
+                    --chain {chain}
+                    --gateway-chain-name {self.gateway_chain_id}
+                    --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                    --l2-rpc-url="{l2_rpc_url}"
+                    --gateway-rpc-url="{config.GATEWAY_DEFAULT_URL}"
+                    """,
+                    cwd=ecosystem_dir,
                 )
 
         utils.cp(

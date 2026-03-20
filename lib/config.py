@@ -11,6 +11,12 @@ ANVIL_DEFAULT_URL: str = "http://localhost:8545"
 # Default URL for local ZKsync OS gateway node
 GATEWAY_DEFAULT_URL: str = "http://localhost:3052"
 
+# Default L2 RPC URLs for user chains (one per chain, in order)
+L2_RPC_URLS: list[str] = [
+    "http://localhost:3050",
+    "http://localhost:3051",
+]
+
 # Default rich private key for Anvil local Ethereum node
 ANVIL_RICH_PRIVATE_KEY: str = (
     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
