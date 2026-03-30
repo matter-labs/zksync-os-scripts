@@ -83,6 +83,21 @@ def clean_dir(path: Path) -> Path:
     return path
 
 
+def clean_dir_keep_readmes(path: Path) -> None:
+    """Remove all files and directories under *path* except README.md files."""
+    if not path.is_dir():
+        return
+    for entry in list(path.rglob("*")):
+        if entry.name == "README.md":
+            continue
+        if entry.is_symlink() or entry.is_file():
+            entry.unlink()
+    # Remove now-empty subdirectories (deepest first)
+    for entry in sorted(path.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        if entry.is_dir() and not any(entry.iterdir()):
+            entry.rmdir()
+
+
 def remove_dir(path: Path) -> Path:
     """
     Remove a directory if it exists.
