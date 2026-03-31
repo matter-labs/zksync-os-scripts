@@ -540,6 +540,15 @@ class GatewaySetup(EcosystemSetup):
                 ctx.sh(
                     f"""
                     {zkstack_bin}
+                    chain gateway notify-about-to-gateway-update
+                    --chain {chain}
+                    --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
+                    """,
+                    cwd=ecosystem_dir,
+                )
+                ctx.sh(
+                    f"""
+                    {zkstack_bin}
                     chain gateway migrate-to-gateway
                     --chain {chain}
                     --gateway-chain-name {self.gateway_chain_id}
@@ -559,6 +568,59 @@ class GatewaySetup(EcosystemSetup):
                     --deploy-paymaster=false
                     """,
                     cwd=ecosystem_dir,
+                )
+
+                # Set up payment of settlement fees so the migrated chain can
+                # be settled on gateway. The GWAssetTracker is a gateway L2
+                # system contract at a well-known fixed address.
+                # Since gateway is ETH-based in this environment, fees are paid
+                # in wrapped ETH, so we must:
+                #   1. Deposit ETH into the wrapped base-token contract.
+                #   2. Approve GWAssetTracker to pull those tokens.
+                #   3. Register the operator as a fee payer for the chain.
+                GW_ASSET_TRACKER = "0x0000000000000000000000000000000000010010"
+                chain_wallets = utils.load_yaml(
+                    ecosystem_dir / "chains" / chain / "configs" / "wallets.yaml"
+                )
+                operator_sk = utils.normalize_hex(
+                    chain_wallets["execute_operator"]["private_key"]
+                )
+
+                ctx.logger.info(
+                    f"Agreeing to pay settlement fees for chain {chain}..."
+                )
+                wrapped_token_addr = utils.sh_output([
+                    "cast", "call",
+                    GW_ASSET_TRACKER,
+                    "wrappedZKToken()(address)",
+                    "--rpc-url", config.GATEWAY_DEFAULT_URL,
+                ])
+                ctx.sh(
+                    f"""
+                    cast send {wrapped_token_addr}
+                    "deposit()"
+                    --value 1ether
+                    --private-key {operator_sk}
+                    --rpc-url "{config.GATEWAY_DEFAULT_URL}"
+                    """
+                )
+                ctx.sh(
+                    f"""
+                    cast send {wrapped_token_addr}
+                    "approve(address,uint256)"
+                    {GW_ASSET_TRACKER} {10**18}
+                    --private-key {operator_sk}
+                    --rpc-url "{config.GATEWAY_DEFAULT_URL}"
+                    """
+                )
+                ctx.sh(
+                    f"""
+                    cast send {GW_ASSET_TRACKER}
+                    "agreeToPaySettlementFees(uint256)"
+                    {chain}
+                    --private-key {operator_sk}
+                    --rpc-url "{config.GATEWAY_DEFAULT_URL}"
+                    """
                 )
 
         utils.cp(
@@ -881,7 +943,6 @@ def script(ctx: ScriptCtx) -> None:
             f"""
             cargo run --
               --output-file {ctx.repo_dir / "local-chains" / protocol_version / "genesis.json"}
-              --execution-version {execution_version}
             """,
             cwd=era_contracts_path / "tools" / "zksync-os-genesis-gen",
         )
