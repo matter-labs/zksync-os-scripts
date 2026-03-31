@@ -473,17 +473,6 @@ class GatewaySetup(EcosystemSetup):
                 contracts_yaml, "bridgehub_proxy_addr"
             )
 
-            ctx.logger.info(f"Unpausing deposits for L1-settling chain {chain}...")
-            ctx.sh(
-                f"""
-                {zkstack_bin}
-                chain unpause-deposits
-                --chain {chain}
-                --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-                """,
-                cwd=ecosystem_dir,
-            )
-
             ctx.logger.info(
                 f"Generating L1 -> L2 deposit transaction for "
                 f"L1-settling chain {chain}..."
