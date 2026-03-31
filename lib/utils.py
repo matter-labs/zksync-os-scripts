@@ -371,7 +371,7 @@ def gateway(
             "--release",
             "--",
             "--config",
-            f"./local-chains/{protocol_version}/gateway/config.yaml",
+            f"./local-chains/local_dev.yaml:./local-chains/{protocol_version}/gateway/config.yaml",
         ],
         cwd=repo_path,
         env=new_env,
