@@ -113,7 +113,7 @@ def _create_and_init_chain(
     )
     ctx.logger.debug(f"Funding accounts for chain {chain}...")
     fund_accounts(ctx, ecosystem_dir)
-    init_args = " --pause-deposits" if pause_deposits else ""
+    init_args = " --skip-priority-txs --pause-deposits" if pause_deposits else ""
     ctx.sh(
         f"""
             {zkstack_bin}
@@ -121,8 +121,7 @@ def _create_and_init_chain(
               --chain {chain}
               --deploy-paymaster=false
               --no-port-reallocation
-              --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"
-              --skip-priority-txs{init_args}
+              --l1-rpc-url="{config.ANVIL_DEFAULT_URL}"{init_args}
         """,
         cwd=ecosystem_dir,
     )
