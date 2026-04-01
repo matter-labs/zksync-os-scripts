@@ -151,6 +151,7 @@ def _write_chain_base_config(
     protocol_version: str,
     *,
     gateway_rpc_url: str | None = None,
+    ephemeral: bool | None = None,
     ephemeral_state: str | None = None,
     rpc_port: int | None = None,
 ) -> None:
@@ -167,9 +168,11 @@ def _write_chain_base_config(
     yaml_path.parent.mkdir(parents=True, exist_ok=True)
     data: dict = {}
 
-    general: dict = {"ephemeral": True}
+    general: dict = {}
     if gateway_rpc_url is not None:
         general["gateway_rpc_url"] = gateway_rpc_url
+    if ephemeral is not None:
+        general["ephemeral"] = ephemeral
     if ephemeral_state is not None:
         general["ephemeral_state"] = ephemeral_state
     data["general"] = general
@@ -373,6 +376,7 @@ class GatewaySetup(EcosystemSetup):
                 yaml_path,
                 chain,
                 protocol_version,
+                ephemeral=True,
                 gateway_rpc_url=config.GATEWAY_DEFAULT_URL,
                 rpc_port=self._user_chain_rpc_port(chain),
             )
@@ -384,7 +388,12 @@ class GatewaySetup(EcosystemSetup):
                 rpc_port=3052,
             )
         else:
-            _write_chain_base_config(yaml_path, chain, protocol_version)
+            _write_chain_base_config(
+                yaml_path,
+                chain,
+                protocol_version,
+                ephemeral=True,
+            )
 
     def use_blob_operator_for(self, chain: str) -> bool:
         # Gateway settles on L1, so it uses the blob operator
@@ -495,7 +504,12 @@ class GatewaySetup(EcosystemSetup):
                 f"Writing L1-settling config for chain {chain} "
                 f"to {config_dst.parent}..."
             )
-            _write_chain_base_config(config_dst, chain, protocol_version)
+            _write_chain_base_config(
+                config_dst,
+                chain,
+                protocol_version,
+                ephemeral=True,
+            )
             edit_server.update_chain_config_yaml(
                 config_dst,
                 use_blob_operator=False,
@@ -620,6 +634,7 @@ class GatewaySetup(EcosystemSetup):
         ephemeral_state = f"./local-chains/{protocol_version}/gateway-db.tar.gz"
         cfg = protocol_base / "gateway" / "config.yaml"
         data = utils.load_yaml(cfg)
+        data.setdefault("general", {})["ephemeral"] = True
         data.setdefault("general", {})["ephemeral_state"] = ephemeral_state
         with cfg.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)
