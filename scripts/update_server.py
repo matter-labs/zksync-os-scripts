@@ -511,7 +511,7 @@ class GatewaySetup(EcosystemSetup):
             )
             edit_server.update_chain_config_yaml(
                 config_dst,
-                use_blob_operator=False,
+                use_blob_operator=True,
                 contracts_yaml=contracts_yaml,
                 wallets_yaml=wallets_yaml,
             )
