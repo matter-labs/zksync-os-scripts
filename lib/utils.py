@@ -88,7 +88,7 @@ def clean_dir_keep_readmes(path: Path) -> None:
     if not path.is_dir():
         return
     for entry in list(path.rglob("*")):
-        if entry.name == "README.md":
+        if entry.name == "README.md" or entry.name == "versions.yaml":
             continue
         if entry.is_symlink() or entry.is_file():
             entry.unlink()
