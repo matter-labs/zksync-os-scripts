@@ -756,7 +756,7 @@ def init_ecosystem(
 
             # Collect operator SKs from all user chains; used by GatewaySetup
             # to fund chain operators on the gateway via L1->Gateway deposits.
-            chain_operator_sks = _collect_operator_sks(ecosystem_dir, setup.user_chains)
+            chain_operator_sks = _collect_operator_sks(ecosystem_dir, setup.user_chains + setup.get_l1_settling_chains())
 
             # Write config files and copy wallets/contracts for every chain.
             for chain in setup.all_chains:
