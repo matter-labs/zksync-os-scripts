@@ -341,6 +341,10 @@ def anvil_dump_state(
             "--preserve-historical-states",
             # Disables block gas limit to ensure forge does not have to be run with `--slow`.
             "--disable-block-gas-limit",
+            # Add mining for l1 confirmations
+            "--block-time=0.25",
+            "--mixed-mining",
+            "--slots-in-an-epoch=10",
             "--dump-state",
             str(l1_state_file),
         ],
