@@ -21,12 +21,10 @@ Script performs the following steps:
 - Update local-chains configurations, copies required chains and wallets files.
 - Generate L1 -> L2 deposit tx for rich wallets.
 - Updates verification key hash.
-- Regenerate `contracts.json` used by the L1 watcher.
 
 The script updates the following files in the [zksync-os-server](https://github.com/matter-labs/zksync-os-server) repository:
 
 - `local-chains/<protocol_version>/**/*` - local chain configuration for chosen protocol version
-- `lib/l1_watcher/src/factory_deps/contracts.json` - L1 contracts configuration used by the L1 watcher
 - `lib/types/src/protocol/proving_version.rs` - new verification key hash (if it changed, otherwise it is not updated)
 
 ---
