@@ -147,33 +147,23 @@ def script(ctx: ScriptCtx) -> None:
     with ctx.section("Update contracts with new verifier", expected=120):
         # Copy the generated verification keys to the expected location for the contract generator
         ctx.sh(
-            f"cp {ctx.repo_dir}/prover/data/keys/fflonk_verification_snark_key.json {ctx.repo_dir}/contracts/tools/data/fflonk_scheduler_key.json"
+            f"cp {ctx.repo_dir}/prover/data/keys/fflonk_verification_snark_key.json {ctx.repo_dir}/contracts/tools/verifier-gen/data/Era_fflonk_scheduler_key.json"
         )
         ctx.sh(
-            f"cp {ctx.repo_dir}/prover/data/keys/verification_snark_key.json {ctx.repo_dir}/contracts/tools/data/plonk_scheduler_key.json"
+            f"cp {ctx.repo_dir}/prover/data/keys/verification_snark_key.json {ctx.repo_dir}/contracts/tools/verifier-gen/data/Era_plonk_scheduler_key.json"
         )
         # Re-generate the verifier contracts with the new keys
         ctx.sh(
             f"""
-            cargo run --bin zksync_verifier_contract_generator --release -- \
-                --plonk_input_path {ctx.repo_dir}/contracts/tools/data/plonk_scheduler_key.json \
-                --fflonk_input_path {ctx.repo_dir}/contracts/tools/data/fflonk_scheduler_key.json \
-                --plonk_output_path {ctx.repo_dir}/contracts/l1-contracts/contracts/state-transition/verifiers/L1VerifierPlonk.sol \
-                --fflonk_output_path {ctx.repo_dir}/contracts/l1-contracts/contracts/state-transition/verifiers/L1VerifierFflonk.sol
+            cargo run --bin zksync_verifier_contract_generator --release -- --variant era
             """,
-            cwd=ctx.repo_dir / "contracts" / "tools",
+            cwd=ctx.repo_dir / "contracts" / "tools" / "verifier-gen",
         )
-        # For L2 verifiers, we need to use the --l2_mode flag to generate the correct contracts
         ctx.sh(
-            f"""
-            cargo run --bin zksync_verifier_contract_generator --release -- \
-                --l2_mode \
-                --plonk_input_path {ctx.repo_dir}/contracts/tools/data/plonk_scheduler_key.json \
-                --fflonk_input_path {ctx.repo_dir}/contracts/tools/data/fflonk_scheduler_key.json \
-                --plonk_output_path {ctx.repo_dir}/contracts/l1-contracts/contracts/state-transition/verifiers/L2VerifierPlonk.sol \
-                --fflonk_output_path {ctx.repo_dir}/contracts/l1-contracts/contracts/state-transition/verifiers/L2VerifierFflonk.sol
-            """,
-            cwd=ctx.repo_dir / "contracts" / "tools",
+            f"cp {ctx.repo_dir}/contracts/tools/verifier-gen/data/EraVerifierPlonk.sol {ctx.repo_dir}/contracts/l1-contracts/contracts/state-transition/verifiers/EraVerifierPlonk.sol"
+        )
+        ctx.sh(
+            f"cp {ctx.repo_dir}/contracts/tools/verifier-gen/data/EraVerifierFflonk.sol {ctx.repo_dir}/contracts/l1-contracts/contracts/state-transition/verifiers/EraVerifierFflonk.sol"
         )
         # Recompute hashes
         ctx.sh(
@@ -195,7 +185,7 @@ def script(ctx: ScriptCtx) -> None:
                     "--quiet",
                     "--",
                     "l1-contracts/contracts/state-transition/verifiers",
-                    "tools/data",
+                    "tools/verifier-gen/data",
                     "AllContractsHashes.json",
                 ],
                 cwd=contracts_dir,
@@ -224,7 +214,7 @@ def script(ctx: ScriptCtx) -> None:
                     "add",
                     "-A",
                     "l1-contracts/contracts/state-transition/verifiers",
-                    "tools/data",
+                    "tools/verifier-gen/data",
                     "AllContractsHashes.json",
                 ],
                 cwd=contracts_dir,
