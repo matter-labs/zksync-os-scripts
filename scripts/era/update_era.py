@@ -253,6 +253,26 @@ def script(ctx: ScriptCtx) -> None:
                     ],
                     cwd=contracts_dir,
                 )
+                ctx.sh(
+                    ["git", "push", "--set-upstream", "origin", branch],
+                    cwd=contracts_dir,
+                )
+                ctx.sh(
+                    [
+                        "gh",
+                        "pr",
+                        "create",
+                        "--title",
+                        "chore: update verifier contracts with new keys",
+                        "--body",
+                        "Update verifier contracts with new keys",
+                        "--base",
+                        "main",
+                        "--head",
+                        branch,
+                    ],
+                    cwd=contracts_dir,
+                )
 
     # ------------------------------------------------------------------ #
     # Regenerate genesis
