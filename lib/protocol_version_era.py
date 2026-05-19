@@ -24,7 +24,7 @@ class Toolchain:
 PROTOCOL_TOOLCHAINS: dict[str, Toolchain] = {
     PROTOCOL_V30: Toolchain(
         yarn_version="1.22",
-        cast_forge_version="0.0.4",
+        cast_forge_version="1.3.5",
         cargo_version="1.80.0",
     ),
 }
