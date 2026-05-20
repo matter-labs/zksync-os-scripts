@@ -16,9 +16,6 @@ def script(ctx: ScriptCtx) -> None:
     # Paths & constants
     # ------------------------------------------------------------------ #
     protocol_version: str = utils.require_env("PROTOCOL_VERSION", "v30")
-    prover_protocol_patch: str | None = None
-    if "PROVER_PROTOCOL_PATCH" in os.environ:
-        prover_protocol_patch = utils.require_env("PROVER_PROTOCOL_PATCH")
     try:
         toolchain = PROTOCOL_TOOLCHAINS[protocol_version]
     except KeyError:
@@ -99,25 +96,6 @@ def script(ctx: ScriptCtx) -> None:
                 "COMPACT_CRS_FILE": str(crs_path),
                 "ZKSYNC_HOME": str(ctx.repo_dir),
             },
-        )
-
-    if prover_protocol_patch is not None:
-        with ctx.section("Update prover protocol patch", expected=2):
-            edit_server.update_rust_const(
-                ctx.repo_dir
-                / "prover"
-                / "crates"
-                / "lib"
-                / "prover_fri_types"
-                / "src"
-                / "lib.rs",
-                "PROVER_PROTOCOL_PATCH",
-                f"VersionPatch({int(prover_protocol_patch)})",
-                value_is_expr=True,
-            )
-    else:
-        ctx.logger.info(
-            "PROVER_PROTOCOL_PATCH is not set, skipping prover patch constant update."
         )
 
     # ------------------------------------------------------------------ #
