@@ -704,19 +704,6 @@ def script(ctx: ScriptCtx) -> None:
         proving_version,
     )
 
-    # ------------------------------------------------------------------ #
-    # Regenerate contracts.json
-    # ------------------------------------------------------------------ #
-    with ctx.section("Regenerate contracts.json", expected=30):
-        ctx.sh("yarn install", cwd=era_contracts_path / "l1-contracts")
-        ctx.sh(
-            f"""
-            yarn write-factory-deps-zksync-os
-            --output {ctx.repo_dir}/lib/l1_watcher/src/factory_deps/contracts.json
-            """,
-            cwd=era_contracts_path / "l1-contracts",
-        )
-
 
 if __name__ == "__main__":
     run_script(
