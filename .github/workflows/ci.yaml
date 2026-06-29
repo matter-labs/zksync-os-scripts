@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: '0 */3 * * *' # every 3 hours
 
 permissions:
   contents: read
@@ -65,25 +63,6 @@ jobs:
     with:
       protocol_version: "${{ matrix.protocol_version }}"
     secrets: inherit
-
-
-  # Report to Slack if any of the scheduled jobs failed
-  report-slack:
-    runs-on: ubuntu-latest
-    if: failure() && github.event_name == 'schedule'
-    needs:
-      - check-vk
-      - check-server
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-
-      - name: Slack notification
-        uses: ./.github/actions/notify-slack
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK }}
-          context: "Possible incompatibility in protocol upgrade scripts."
-
 
   # Special job that allows some of the jobs to be skipped or failed
   # requiring others to be successful
