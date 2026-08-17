@@ -102,10 +102,21 @@ jobs:
         with:
           zksync_foundry_version: ${{ steps.define-versions.outputs.zksync_foundry_version }}
 
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.MATTERLABS_BOTS_APP_ID }}
+          private-key: ${{ secrets.MATTERLABS_BOTS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            era-contracts
+            zksync-os-server
+
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          github_token: ${{ secrets.RELEASE_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
           zksync_era_version: ${{ steps.define-versions.outputs.zksync_era_version }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
           zksync_os_server_version: ${{ steps.define-versions.outputs.zksync_server_branch }}
@@ -135,7 +146,7 @@ jobs:
         if: success() && inputs.commit_changes
         working-directory: ${{ env.WORKSPACE }}/zksync-os-server
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           COMMIT_TITLE: "chore: update server for protocol ${{ inputs.protocol_version }}"
         run: |
           if [[ "${{ inputs.open_pr }}" == "true" ]]; then
