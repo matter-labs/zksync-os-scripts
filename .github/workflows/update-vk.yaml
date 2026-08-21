@@ -22,7 +22,7 @@ on:
         description: '[mandatory] Git tag of zksync-os to use for update.'
         type: string
         required: true
-        default: 'v0.4.0'
+        default: 'v0.5.0'
       era_contracts_branch:
         description: '[optional] Explicit Git branch of era-contracts to use. If not specified, derived from protocol version.'
         type: string
@@ -69,8 +69,8 @@ env:
   # Versions mapping for v32
   ZKSYNC_FOUNDRY_VERSION_V32: "v0.1.5"
   ZKOS_WRAPPER_VERSION_V32: "main"
-  ERA_CONTRACTS_VERSION_V32: "dz-v32-public-input" # TODO: change to a more stable branch when available
-  ZKSYNC_OS_TAG_V32: "v0.4.0"
+  ERA_CONTRACTS_VERSION_V32: "draft-v32"
+  ZKSYNC_OS_TAG_V32: "v0.5.0"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"

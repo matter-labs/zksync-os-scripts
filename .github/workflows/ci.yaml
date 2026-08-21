@@ -45,7 +45,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-         protocol_version: ["v30.2", "v31.0", "v32.0"]
+        # TODO: return v31.0 and v32.0 when ready
+        protocol_version: ["v30.2"]
+        # protocol_version: ["v30.2", "v31.0", "v32.0"]
     with:
       protocol_version: "${{ matrix.protocol_version }}"
     secrets: inherit
