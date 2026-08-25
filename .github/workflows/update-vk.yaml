@@ -17,11 +17,12 @@ on:
         options:
           - 'v30.2'
           - 'v31.0'
+          - 'v32.0'
       zksync_os_tag:
         description: '[mandatory] Git tag of zksync-os to use for update.'
         type: string
         required: true
-        default: 'v0.3.0'
+        default: 'v0.5.0'
       era_contracts_branch:
         description: '[optional] Explicit Git branch of era-contracts to use. If not specified, derived from protocol version.'
         type: string
@@ -65,6 +66,11 @@ env:
   ZKOS_WRAPPER_VERSION_V31: "main"
   ERA_CONTRACTS_VERSION_V31: "draft-v31"
   ZKSYNC_OS_TAG_V31: "v0.3.0"
+  # Versions mapping for v32
+  ZKSYNC_FOUNDRY_VERSION_V32: "v0.1.5"
+  ZKOS_WRAPPER_VERSION_V32: "main"
+  ERA_CONTRACTS_VERSION_V32: "draft-v32"
+  ZKSYNC_OS_TAG_V32: "v0.5.0"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
@@ -90,6 +96,11 @@ jobs:
             echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
             echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
             echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V31 }}" >> "${GITHUB_OUTPUT}"
+          elif [[ "${{ inputs.protocol_version }}" == "v32.0" ]]; then
+            echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V32 }}" >> "${GITHUB_OUTPUT}"
+            echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V32 }}" >> "${GITHUB_OUTPUT}"
+            echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V32 }}" >> "${GITHUB_OUTPUT}"
+            echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V32 }}" >> "${GITHUB_OUTPUT}"
           else
             echo "Unsupported protocol version: ${{ inputs.protocol_version }}"
             exit 1
