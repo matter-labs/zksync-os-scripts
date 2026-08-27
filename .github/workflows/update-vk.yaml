@@ -114,10 +114,21 @@ jobs:
         with:
           zksync_foundry_version: ${{ steps.define-versions.outputs.zksync_foundry_version }}
 
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.MATTERLABS_BOTS_APP_ID }}
+          private-key: ${{ secrets.MATTERLABS_BOTS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            era-contracts
+            zkos-wrapper
+
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          github_token: ${{ secrets.RELEASE_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
 
@@ -145,7 +156,7 @@ jobs:
         if: success() && inputs.commit_changes
         working-directory: ${{ env.WORKSPACE }}/era-contracts
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           COMMIT_TITLE: "chore: update verification keys for protocol ${{ inputs.protocol_version }}"
         run: |
           if [[ "${{ inputs.open_pr }}" == "true" ]]; then
