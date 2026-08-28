@@ -1,5 +1,7 @@
 import hashlib
 import gzip
+import json
+import tarfile
 import contextlib
 import re
 import shutil
@@ -341,6 +343,11 @@ def anvil_dump_state(
             "--preserve-historical-states",
             # Disables block gas limit to ensure forge does not have to be run with `--slow`.
             "--disable-block-gas-limit",
+            "--block-time",
+            "0.25",
+            "--mixed-mining",
+            "--slots-in-an-epoch",
+            "10",
             "--dump-state",
             str(l1_state_file),
         ],
@@ -383,6 +390,129 @@ def anvil_dump_state(
         if compress and l1_state_file.exists():
             gz_path = gzip_file(l1_state_file, keep_src=False)
             logger.info(f"Compressed state -> {gz_path}")
+
+def targz_dir(src: Path, *, dst: Path | None = None, keep_src: bool = False) -> Path:
+    """Create a tar.gz archive of a directory."""
+    if dst is None:
+        dst = src.with_suffix(".tar.gz")
+    tmp = dst.with_suffix(".tmp")
+    with tarfile.open(tmp, "w:gz") as tar:
+        tar.add(src, arcname=".")
+    tmp.replace(dst)
+    if not keep_src:
+        shutil.rmtree(src, ignore_errors=True)
+    return dst
+
+
+def _wait_for_rpc(
+    proc: subprocess.Popen,
+    *,
+    url: str,
+    timeout: float = 60,
+    poll_interval: float = 1.0,
+) -> None:
+    """
+    Block until the JSON-RPC endpoint at *url* replies to an `eth_chainId`
+    request, or raise SystemExit if the process dies or the timeout expires.
+    """
+    deadline = time.monotonic() + timeout
+    payload = json.dumps(
+        {"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 1}
+    ).encode()
+
+    while time.monotonic() < deadline:
+        # Process died before the RPC came up
+        if proc.poll() is not None:
+            raise SystemExit(
+                f"Gateway exited (code {proc.returncode}) before its RPC became available"
+            )
+        try:
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                if resp.status == 200:
+                    logger.debug(f"Gateway RPC is up at {url}")
+                    return
+        except Exception:
+            pass
+        time.sleep(poll_interval)
+
+    raise SystemExit(
+        f"Gateway RPC at {url} did not become available within {timeout}s"
+    )
+
+
+@contextlib.contextmanager
+def gateway(
+    *,
+    repo_path: Path,
+    db_path: Path,
+    protocol_version: str,
+):
+    """
+    Run Gateway
+
+    Usage:
+        with ctx.gateway(repo_path=server_repo_path, db_path=gateway_db_path):
+            ... do stuff while Gateway is running ...
+    """
+    new_env = os.environ.copy()
+    new_env["GENERAL_ROCKS_DB_PATH"] = str(db_path)
+    proc = subprocess.Popen(
+        [
+            "cargo",
+            "run",
+            "--release",
+            "--",
+            "--config",
+            "./local-chains/local_dev.yaml",
+            "--config",
+            f"./local-chains/{protocol_version}/gateway/config.yaml",
+        ],
+        cwd=repo_path,
+        env=new_env,
+        stdout=subprocess.DEVNULL,
+        text=True,
+    )
+
+    _wait_for_rpc(proc, url=config.GATEWAY_DEFAULT_URL, timeout=60)
+
+    try:
+        yield proc
+    finally:
+        pid = proc.pid
+        if proc.poll() is not None:
+            print(f"Gateway already stopped (pid={pid})")
+        else:
+            print(f"Stopping Gateway (pid={pid})")
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                print("Gateway still alive; sending SIGKILL")
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                _ = proc.wait(timeout=5)
+
+        # Compress after gateway has stopped and released the DB
+        if db_path.exists():
+            gz_path = targz_dir(db_path, keep_src=False)
+            logger.info(f"Compressed gateway DB -> {gz_path}")
+
+
+def sh_output(argv: list[str]) -> str:
+    """Run a command and return its stripped stdout. Raises on non-zero exit."""
+    result = subprocess.run(argv, capture_output=True, text=True, check=True)
+    return result.stdout.strip()
 
 
 def addresses_from_wallets_yaml(data: dict) -> set[str]:

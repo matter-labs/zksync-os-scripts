@@ -112,6 +112,7 @@ def get_contract_address(
 def update_chain_config_yaml(
     yaml_path: str | Path,
     *,
+    use_blob_operator: bool,
     contracts_yaml: str | Path,
     wallets_yaml: str | Path,
 ) -> None:
@@ -132,10 +133,13 @@ def update_chain_config_yaml(
     )
 
     mapping = {
-        "blob_operator": "operator_commit_sk",
         "prove_operator": "operator_prove_sk",
         "execute_operator": "operator_execute_sk",
     }
+    if use_blob_operator:
+        mapping["blob_operator"] = "operator_commit_sk"
+    else:
+        mapping["operator"] = "operator_commit_sk"
 
     wallets = utils.load_yaml(wallets_yaml)
 
