@@ -131,13 +131,11 @@ class WorkflowVersionTests(unittest.TestCase):
             values["zksync_os_repository"], "matter-labs/zksync-os-private"
         )
         self.assertEqual(
-            values["zkos_wrapper_repository"], "matter-labs/zkos-wrapper-private"
+            values["zkos_wrapper_repository"], "matter-labs/zksync-protocol-private"
         )
         self.assertEqual(values["zkos_wrapper_version"], "prover-wrapper-sha")
         self.assertEqual(values["era_contracts_version"], "contracts-v33.1")
-        self.assertEqual(
-            values["zkos_wrapper_recursion_mode"], "use-reduced-log23-machine"
-        )
+        self.assertEqual(values["zkos_wrapper_layout"], "monorepo")
 
     def test_v33_1_requires_wrapper_and_contracts(self):
         for overrides, missing in [
@@ -176,9 +174,13 @@ class VkGenerationTests(unittest.TestCase):
     @patch("scripts.update_vk.utils.download")
     @patch("scripts.update_vk.download_os_binary")
     def test_generation_and_hash_artifacts(self, download_binary, _download, _require):
-        for mode in ["", "use-reduced-log23-machine"]:
+        for layout, mode in [
+            ("legacy", ""),
+            ("legacy", "use-reduced-log23-machine"),
+            ("monorepo", ""),
+        ]:
             with (
-                self.subTest(mode=mode),
+                self.subTest(layout=layout, mode=mode),
                 tempfile.TemporaryDirectory(prefix="vk test ") as tmp,
             ):
                 workspace = Path(tmp)
@@ -191,7 +193,13 @@ class VkGenerationTests(unittest.TestCase):
                     (data / f"{name}.sol").write_text(
                         f"/// @dev Contract was generated from a verification key with a hash of {vk_hash}\n"
                     )
-                download_binary.return_value = workspace / "multiblock_batch.bin"
+                download_binary.side_effect = (
+                    lambda ctx,
+                    tag,
+                    url,
+                    repository,
+                    asset="multiblock_batch.bin": workspace / asset
+                )
                 commands = []
 
                 def run(command, **kwargs):
@@ -200,6 +208,10 @@ class VkGenerationTests(unittest.TestCase):
                         (workspace / "snark_vk_expected.json").write_text(
                             '{"generated":true}'
                         )
+
+                    if isinstance(command, list) and "generate-vk" in command:
+                        self.assertEqual(kwargs["cwd"], wrapper / "zkos-wrapper")
+                        (workspace / "snark_vk.json").write_text('{"generated":true}')
 
                 ctx = MagicMock(
                     workspace=workspace,
@@ -214,15 +226,36 @@ class VkGenerationTests(unittest.TestCase):
                         "ZKSYNC_OS_TAG": "v0.5.5",
                         "ZKSYNC_OS_REPOSITORY": "matter-labs/zksync-os-private",
                         "ZKOS_WRAPPER_RECURSION_MODE": mode,
+                        "ZKOS_WRAPPER_LAYOUT": layout,
                     },
                     clear=True,
                 ):
                     script(ctx)
                 command = commands[0]
-                self.assertEqual(
-                    command[command.index("--input-binary") + 1],
-                    str(download_binary.return_value),
-                )
+                if layout == "monorepo":
+                    args = command[command.index("--") + 1 :]
+                    self.assertEqual(
+                        args[args.index("--bin") + 1],
+                        str(workspace / "multiblock_batch.bin"),
+                    )
+                    self.assertEqual(
+                        args[args.index("--text") + 1],
+                        str(workspace / "multiblock_batch.text"),
+                    )
+                    self.assertEqual(
+                        args[args.index("--trusted-setup") + 1],
+                        str(workspace / "setup.key"),
+                    )
+                    self.assertIn("--check-aux-params", args)
+                    self.assertIn("--no-default-features", command)
+                    self.assertEqual(
+                        command[command.index("--features") + 1], "security_100"
+                    )
+                else:
+                    self.assertEqual(
+                        command[command.index("--input-binary") + 1],
+                        str(workspace / "multiblock_batch.bin"),
+                    )
                 self.assertEqual("--recursion-mode" in command, bool(mode))
                 if mode:
                     self.assertEqual(

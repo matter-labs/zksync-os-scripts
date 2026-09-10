@@ -11,9 +11,12 @@ import lib.config as config
 
 
 def download_os_binary(
-    ctx: ScriptCtx, tag: str, url: str, repository: str | None
+    ctx: ScriptCtx,
+    tag: str,
+    url: str,
+    repository: str | None,
+    asset_name: str = "multiblock_batch.bin",
 ) -> Path:
-    asset_name = "multiblock_batch.bin"
     output_file = ctx.workspace / asset_name
     # A shared workspace may contain another release's binary. Always fetch the requested
     # asset and only replace the previous file once the download succeeds.
@@ -61,6 +64,15 @@ def script(ctx: ScriptCtx) -> None:
     zksync_os_url = utils.require_env("ZKSYNC_OS_URL", config.ZKSYNC_OS_URL)
     zksync_os_repository = os.environ.get("ZKSYNC_OS_REPOSITORY")
     recursion_mode = os.environ.get("ZKOS_WRAPPER_RECURSION_MODE")
+    wrapper_layout = os.environ.get("ZKOS_WRAPPER_LAYOUT", "legacy")
+    if wrapper_layout not in {"legacy", "monorepo"}:
+        raise ValueError(f"Unsupported wrapper layout: {wrapper_layout}")
+    if wrapper_layout == "monorepo":
+        if recursion_mode:
+            raise ValueError(
+                "The monorepo wrapper uses the unified verifier; omit ZKOS_WRAPPER_RECURSION_MODE"
+            )
+        zkos_wrapper_path /= "zkos-wrapper"
     if zksync_os_repository:
         utils.require_cmds({"gh": ">=2.0"})
 
@@ -82,6 +94,14 @@ def script(ctx: ScriptCtx) -> None:
         binary_path = download_os_binary(
             ctx, zksync_os_tag, zksync_os_url, zksync_os_repository
         )
+        if wrapper_layout == "monorepo":
+            text_path = download_os_binary(
+                ctx,
+                zksync_os_tag,
+                zksync_os_url,
+                zksync_os_repository,
+                "multiblock_batch.text",
+            )
 
     # ------------------------------------------------------------------ #
     # Generate SNARK VK using zkos-wrapper
@@ -107,7 +127,37 @@ def script(ctx: ScriptCtx) -> None:
         ]
         if recursion_mode:
             command.extend(["--recursion-mode", recursion_mode])
+        if wrapper_layout == "monorepo":
+            # Match the prover's 100-bit circuits and constrain the application commitment.
+            # Without --check-aux-params this CLI generates an application-independent VK.
+            command = [
+                "cargo",
+                "run",
+                "--locked",
+                "--release",
+                "-p",
+                "zkos-wrapper",
+                "--bin",
+                "wrapper",
+                "--no-default-features",
+                "--features",
+                "security_100",
+                "--",
+                "generate-vk",
+                "--bin",
+                str(binary_path),
+                "--text",
+                str(text_path),
+                "--trusted-setup",
+                str(crs_path),
+                "--check-aux-params",
+                "--output-dir",
+                str(ctx.workspace),
+            ]
+            (ctx.workspace / "snark_vk.json").unlink(missing_ok=True)
         ctx.sh(command, cwd=zkos_wrapper_path)
+        if wrapper_layout == "monorepo":
+            utils.cp(ctx.workspace / "snark_vk.json", vk_path)
 
     # ------------------------------------------------------------------ #
     # Copy VK and generate verifier contracts

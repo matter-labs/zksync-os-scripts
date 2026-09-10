@@ -27,8 +27,12 @@ on:
         description: '[optional] Wrapper repository (owner/name). Defaults to the selected protocol mapping.'
         type: string
         required: false
+      zkos_wrapper_layout:
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1 defaults to monorepo.'
+        type: string
+        required: false
       zkos_wrapper_recursion_mode:
-        description: '[optional] Wrapper recursion mode. v33.1 defaults to use-reduced-log23-machine.'
+        description: '[optional] Recursion mode for legacy wrappers. Leave empty for monorepo wrappers.'
         type: string
         required: false
       commit_changes:
@@ -73,8 +77,12 @@ on:
         description: '[optional] Wrapper repository (owner/name). Defaults to the selected protocol mapping.'
         type: string
         required: false
+      zkos_wrapper_layout:
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1 defaults to monorepo.'
+        type: string
+        required: false
       zkos_wrapper_recursion_mode:
-        description: '[optional] Wrapper recursion mode. v33.1 defaults to use-reduced-log23-machine.'
+        description: '[optional] Recursion mode for legacy wrappers. Leave empty for monorepo wrappers.'
         type: string
         required: false
       commit_changes:
@@ -141,6 +149,7 @@ jobs:
           WRAPPER_VERSION: ${{ inputs.zkos_wrapper_version }}
           WRAPPER_REPOSITORY: ${{ inputs.zkos_wrapper_repository }}
           WRAPPER_RECURSION_MODE: ${{ inputs.zkos_wrapper_recursion_mode }}
+          WRAPPER_LAYOUT: ${{ inputs.zkos_wrapper_layout }}
         run: |
           case "$PROTOCOL_VERSION" in
             v30.2) series=V30 ;;
@@ -159,8 +168,8 @@ jobs:
           os_tag_var="ZKSYNC_OS_TAG_${series}"
           if [[ "$series" == V33 ]]; then
             OS_REPOSITORY="${OS_REPOSITORY:-matter-labs/zksync-os-private}"
-            WRAPPER_REPOSITORY="${WRAPPER_REPOSITORY:-matter-labs/zkos-wrapper-private}"
-            WRAPPER_RECURSION_MODE="${WRAPPER_RECURSION_MODE:-use-reduced-log23-machine}"
+            WRAPPER_REPOSITORY="${WRAPPER_REPOSITORY:-matter-labs/zksync-protocol-private}"
+            WRAPPER_LAYOUT="${WRAPPER_LAYOUT:-monorepo}"
           fi
           echo "zksync_foundry_version=${!foundry_var}" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_version=${WRAPPER_VERSION:-${!wrapper_var}}" >> "$GITHUB_OUTPUT"
@@ -169,6 +178,7 @@ jobs:
           echo "zksync_os_repository=${OS_REPOSITORY:-matter-labs/zksync-os}" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_repository=${WRAPPER_REPOSITORY:-matter-labs/zkos-wrapper}" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_recursion_mode=$WRAPPER_RECURSION_MODE" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_layout=${WRAPPER_LAYOUT:-legacy}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repo
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -196,13 +206,15 @@ jobs:
           fi
 
       - name: Update vk
-        timeout-minutes: 30
+        timeout-minutes: 60
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
           CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
           ZKSYNC_OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
           ZKSYNC_OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
           ZKOS_WRAPPER_RECURSION_MODE: ${{ steps.define-versions.outputs.zkos_wrapper_recursion_mode }}
+          ZKOS_WRAPPER_LAYOUT: ${{ steps.define-versions.outputs.zkos_wrapper_layout }}
+          RUST_MIN_STACK: '268435456'
         run: |
           REPO_DIR=${WORKSPACE}/era-contracts \
           ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \

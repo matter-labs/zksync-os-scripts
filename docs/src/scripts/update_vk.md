@@ -88,7 +88,8 @@ that can be triggered manually via GitHub Actions UI interface.
 | `era_contracts_branch` | v33.1 only | Contracts branch; otherwise defaults to the protocol mapping. |
 | `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; otherwise defaults to `main`. |
 | `zkos_wrapper_repository` | ❌   | Wrapper repository (`owner/name`); defaults to the protocol mapping. |
-| `zkos_wrapper_recursion_mode` | ❌ | Recursion mode passed to the wrapper; defaults to `use-reduced-log23-machine` for v33.1, otherwise uses the wrapper default. |
+| `zkos_wrapper_layout` | ❌ | `monorepo` for the current v33.1 wrapper, or `legacy` for the standalone wrapper. |
+| `zkos_wrapper_recursion_mode` | ❌ | Recursion mode for legacy wrappers; leave empty for the monorepo wrapper. |
 | `commit_changes`       | ❌       | Whether to commit the updated keys. Defaults to `true`.        |
 | `open_pr`              | ❌       | Whether to open a PR. Defaults to `true`.                      |
 
@@ -126,14 +127,20 @@ Select `protocol_version=v33.1`. The workflow defaults to:
 | --- | --- |
 | `zksync_os_repository` | `matter-labs/zksync-os-private` |
 | `zksync_os_tag` | `v0.5.5` |
-| `zkos_wrapper_repository` | `matter-labs/zkos-wrapper-private` |
-| `zkos_wrapper_recursion_mode` | `use-reduced-log23-machine` |
+| `zkos_wrapper_repository` | `matter-labs/zksync-protocol-private` |
+| `zkos_wrapper_layout` | `monorepo` |
 
 Supply `zkos_wrapper_version` and `era_contracts_branch` explicitly. Choose the wrapper revision
-and recursion mode used by the intended prover; the OS release tag alone does not determine the VK.
+and circuit configuration used by the intended prover; the OS release tag alone does not determine the VK.
 The workflow fails before building if either required input is missing.
 Set `commit_changes=false` to generate the artifacts without committing contracts changes.
 Reusable workflow callers can supply the same overrides, and default to not committing changes.
+
+The monorepo layout builds the `zkos-wrapper/` workspace with `security_100` explicitly enabled.
+It runs `generate-vk` with both `multiblock_batch.bin` and `multiblock_batch.text`, the trusted setup,
+and `--check-aux-params`, matching the application-bound configuration of prover v0.9.5-private.
+That prover pins `zksync-protocol-private` revision `621e27502f7baf21b0eeafe742764ab474aa0f6d`.
+Older protocols continue using the standalone `generate-snark-vk` CLI.
 
 The `RELEASE_TOKEN` secret must have read access to the private OS release, the wrapper repository,
 and its private Git dependencies. Committing contracts changes also requires write access to
@@ -145,10 +152,10 @@ For a local run, first authenticate `gh` and check out the matching wrapper and 
 ```bash
 WORKSPACE=/tmp/v33.1-vk \
 REPO_DIR=/path/to/era-contracts \
-ZKOS_WRAPPER_PATH=/path/to/zkos-wrapper-private \
+ZKOS_WRAPPER_PATH=/path/to/zksync-protocol-private \
 ZKSYNC_OS_REPOSITORY=matter-labs/zksync-os-private \
 ZKSYNC_OS_TAG=v0.5.5 \
-ZKOS_WRAPPER_RECURSION_MODE=use-reduced-log23-machine \
+ZKOS_WRAPPER_LAYOUT=monorepo \
     uv run -m scripts.update_vk
 ```
 
