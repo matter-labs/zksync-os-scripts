@@ -218,6 +218,9 @@ def script(ctx: ScriptCtx) -> None:
         for contract in ("ZKsyncOSVerifierPlonk", "ZKsyncOSVerifierFflonk"):
             src = ctx.repo_dir / "tools" / "verifier-gen" / "data" / f"{contract}.sol"
             dst = verifiers_dir / f"{contract}.sol"
+            # v33 removed the OS FFLONK verifier; older contracts still require it.
+            if contract == "ZKsyncOSVerifierFflonk" and not dst.exists():
+                continue
             utils.cp(src, dst)
 
         vk_hash = utils.extract_vk_hash(verifiers_dir / "ZKsyncOSVerifierPlonk.sol")

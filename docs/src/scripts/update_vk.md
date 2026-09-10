@@ -144,6 +144,8 @@ The monorepo wrapper uses the larger `setup_2^25.key` trusted setup; the older
 `setup_2^24.key` has too few points for its SNARK domain. Both files are checksum-verified.
 The script also raises the main-thread stack limit and supplies `RUST_MIN_STACK` for worker threads.
 Older protocols continue using the standalone `generate-snark-vk` CLI and the smaller setup.
+The FFLONK verifier is refreshed only when it exists in the target checkout: v33 uses PLONK alone,
+while older versions retain both verifiers.
 
 Downloads and Cargo use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`, falling back to `RELEASE_TOKEN`.
 The token must have read access to the private OS release and the wrapper's private Git dependencies.
