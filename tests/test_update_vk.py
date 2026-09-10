@@ -268,7 +268,7 @@ class VkGenerationTests(unittest.TestCase):
                     )
                     self.assertEqual(
                         args[args.index("--trusted-setup") + 1],
-                        str(workspace / "setup.key"),
+                        str(workspace / "setup_2_25.key"),
                     )
                     self.assertIn("--check-aux-params", args)
                     self.assertIn("--no-default-features", command)

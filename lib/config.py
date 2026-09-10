@@ -36,3 +36,11 @@ CRS_FILE_COMPACT_URL: str = "https://storage.googleapis.com/matterlabs-setup-key
 CRS_FILE_COMPACT_SHA256_CHECKSUM: str = (
     "90d1dea94da665d5741dcc6e9ffc1af23a29669f950a6d599a6ccfee4cfb81bd"
 )
+
+# The 100-bit monorepo wrapper uses a 2^25-row SNARK domain.
+CRS_FILE_2_25_URL: str = (
+    "https://storage.googleapis.com/matterlabs-setup-keys-us/setup-keys/setup_2^25.key"
+)
+CRS_FILE_2_25_SHA256_CHECKSUM: str = (
+    "021fcc36428ff74352a94ff9ccdd6ef234e99e33e670c2507612994849aa1421"
+)

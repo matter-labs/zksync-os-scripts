@@ -140,7 +140,10 @@ The monorepo layout builds the `zkos-wrapper/` workspace with `security_100` exp
 It runs `generate-vk` with both `multiblock_batch.bin` and `multiblock_batch.text`, the trusted setup,
 and `--check-aux-params`, matching the application-bound configuration of prover v0.9.5-private.
 That prover pins `zksync-protocol-private` revision `621e27502f7baf21b0eeafe742764ab474aa0f6d`.
-Older protocols continue using the standalone `generate-snark-vk` CLI.
+The monorepo wrapper uses the larger `setup_2^25.key` trusted setup; the older
+`setup_2^24.key` has too few points for its SNARK domain. Both files are checksum-verified.
+The script also raises the main-thread stack limit and supplies `RUST_MIN_STACK` for worker threads.
+Older protocols continue using the standalone `generate-snark-vk` CLI and the smaller setup.
 
 Downloads and Cargo use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`, falling back to `RELEASE_TOKEN`.
 The token must have read access to the private OS release and the wrapper's private Git dependencies.
