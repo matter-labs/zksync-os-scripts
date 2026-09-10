@@ -90,11 +90,19 @@ def script(ctx: ScriptCtx) -> None:
     # Download CRS (trusted setup) file
     # ------------------------------------------------------------------ #
     with ctx.section("Download CRS file", expected=30):
-        crs_path = ctx.workspace / "setup.key"
+        if wrapper_layout == "monorepo":
+            # The 100-bit wrapper's SNARK domain has 2^25 rows.
+            crs_path = ctx.workspace / "setup_2_25.key"
+            crs_url = config.CRS_FILE_2_25_URL
+            crs_checksum = config.CRS_FILE_2_25_SHA256_CHECKSUM
+        else:
+            crs_path = ctx.workspace / "setup.key"
+            crs_url = config.CRS_FILE_URL
+            crs_checksum = config.CRS_FILE_SHA256_CHECKSUM
         utils.download(
-            config.CRS_FILE_URL,
+            crs_url,
             crs_path,
-            checksum=config.CRS_FILE_SHA256_CHECKSUM,
+            checksum=crs_checksum,
         )
 
     # ------------------------------------------------------------------ #
