@@ -142,9 +142,10 @@ and `--check-aux-params`, matching the application-bound configuration of prover
 That prover pins `zksync-protocol-private` revision `621e27502f7baf21b0eeafe742764ab474aa0f6d`.
 Older protocols continue using the standalone `generate-snark-vk` CLI.
 
-The `RELEASE_TOKEN` secret must have read access to the private OS release, the wrapper repository,
-and its private Git dependencies. Committing contracts changes also requires write access to
-the target contracts repository. The workflow uses GitHub CLI authentication for release downloads
+Downloads and Cargo use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`, falling back to `RELEASE_TOKEN`.
+The token must have read access to the private OS release and the wrapper's private Git dependencies.
+Dependency checkouts and contracts commits use `RELEASE_TOKEN`, which needs access to the
+wrapper repository and write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
 and Cargo Git dependencies.
 
 For a local run, first authenticate `gh` and check out the matching wrapper and contracts revisions:

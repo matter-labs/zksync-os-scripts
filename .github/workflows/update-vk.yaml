@@ -199,7 +199,7 @@ jobs:
       - name: Configure private dependency authentication
         shell: bash -e {0}
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
         run: |
           if [[ -n "$GH_TOKEN" ]]; then
             gh auth setup-git --hostname github.com
@@ -208,7 +208,7 @@ jobs:
       - name: Update vk
         timeout-minutes: 60
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          GH_TOKEN: ${{ secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN || github.token }}
           CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
           ZKSYNC_OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
           ZKSYNC_OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
