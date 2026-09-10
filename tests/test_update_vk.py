@@ -213,7 +213,15 @@ class VkGenerationTests(unittest.TestCase):
                 data = contracts / "tools/verifier-gen/data"
                 data.mkdir(parents=True)
                 vk_hash = "0x" + "42" * 32
-                for name in ("ZKsyncOSVerifierPlonk", "ZKsyncOSVerifierFflonk"):
+                verifiers = (
+                    contracts / "l1-contracts/contracts/state-transition/verifiers"
+                )
+                verifiers.mkdir(parents=True)
+                names = ["ZKsyncOSVerifierPlonk"]
+                if layout == "legacy":
+                    names.append("ZKsyncOSVerifierFflonk")
+                for name in names:
+                    (verifiers / f"{name}.sol").write_text("old verifier")
                     (data / f"{name}.sol").write_text(
                         f"/// @dev Contract was generated from a verification key with a hash of {vk_hash}\n"
                     )
@@ -288,6 +296,15 @@ class VkGenerationTests(unittest.TestCase):
                 self.assertEqual(
                     (workspace / "vk_hash.txt").read_text(), vk_hash + "\n"
                 )
+                for name in names:
+                    self.assertEqual(
+                        (verifiers / f"{name}.sol").read_text(),
+                        (data / f"{name}.sol").read_text(),
+                    )
+                if layout == "monorepo":
+                    self.assertFalse(
+                        (verifiers / "ZKsyncOSVerifierFflonk.sol").exists()
+                    )
                 self.assertEqual(
                     (data / "ZKsyncOS_plonk_scheduler_key.json").read_text(),
                     '{"generated":true}',
