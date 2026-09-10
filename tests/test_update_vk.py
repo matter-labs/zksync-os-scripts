@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import resource
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,7 +10,30 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
-from scripts.update_vk import download_os_binary, script
+from scripts.update_vk import (
+    WRAPPER_STACK_BYTES,
+    download_os_binary,
+    prepare_wrapper_stack,
+    script,
+)
+
+
+class WrapperStackTests(unittest.TestCase):
+    @patch("scripts.update_vk.resource.setrlimit")
+    @patch("scripts.update_vk.resource.getrlimit")
+    def test_main_thread_stack_limit(self, getrlimit, setrlimit):
+        for soft in [8 * 1024 * 1024, WRAPPER_STACK_BYTES, resource.RLIM_INFINITY]:
+            with self.subTest(soft=soft):
+                getrlimit.return_value = (soft, resource.RLIM_INFINITY)
+                setrlimit.reset_mock()
+                prepare_wrapper_stack()
+                if soft == 8 * 1024 * 1024:
+                    setrlimit.assert_called_once_with(
+                        resource.RLIMIT_STACK,
+                        (WRAPPER_STACK_BYTES, resource.RLIM_INFINITY),
+                    )
+                else:
+                    setrlimit.assert_not_called()
 
 
 class DownloadBinaryTests(unittest.TestCase):

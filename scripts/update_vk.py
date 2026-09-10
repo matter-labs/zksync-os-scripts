@@ -2,12 +2,22 @@
 
 import os
 from pathlib import Path
+import resource
 import tempfile
 
 from lib.script_context import ScriptCtx
 from lib.entry import run_script
 import lib.utils as utils
 import lib.config as config
+
+WRAPPER_STACK_BYTES = 256 * 1024 * 1024
+
+
+def prepare_wrapper_stack() -> None:
+    # RUST_MIN_STACK only affects spawned threads; VK synthesis also recurses on main.
+    soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
+    if soft != resource.RLIM_INFINITY and soft < WRAPPER_STACK_BYTES:
+        resource.setrlimit(resource.RLIMIT_STACK, (WRAPPER_STACK_BYTES, hard))
 
 
 def download_os_binary(
@@ -107,6 +117,7 @@ def script(ctx: ScriptCtx) -> None:
     # Generate SNARK VK using zkos-wrapper
     # ------------------------------------------------------------------ #
     with ctx.section("Generate SNARK VK", expected=430):
+        prepare_wrapper_stack()
         vk_path = ctx.workspace / "snark_vk_expected.json"
         if vk_path.is_file():
             vk_path.unlink()
@@ -155,7 +166,15 @@ def script(ctx: ScriptCtx) -> None:
                 str(ctx.workspace),
             ]
             (ctx.workspace / "snark_vk.json").unlink(missing_ok=True)
-        ctx.sh(command, cwd=zkos_wrapper_path)
+        ctx.sh(
+            command,
+            cwd=zkos_wrapper_path,
+            env={
+                "RUST_MIN_STACK": os.environ.get(
+                    "RUST_MIN_STACK", str(WRAPPER_STACK_BYTES)
+                )
+            },
+        )
         if wrapper_layout == "monorepo":
             utils.cp(ctx.workspace / "snark_vk.json", vk_path)
 
