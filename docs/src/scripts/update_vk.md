@@ -62,7 +62,7 @@ which should be specified via corresponding path environment variables:
 | Repository    | Env Variable        | Protocol version → Branch Mapping |
 | :------------ | :------------------ | :----------------------- |
 | [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-zksync-os`<br />**v32.0** → `draft-v32` |
-| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **all versions** → `main` (latest) |
+| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision |
 
 Please, additionally check [protocol compatibility](../protocol-compatibility.md) to ensure the correct versions are used.
 ```
@@ -83,9 +83,12 @@ that can be triggered manually via GitHub Actions UI interface.
 | Name                   | Required | Description                                                    |
 | ---------------------- | -------- | -------------------------------------------------------------- |
 | `protocol_version`     | ✅       | Protocol version to update verification keys for.              |
-| `zksync_os_tag`        | ✅       | Git tag of `zksync-os` used to generate the keys.              |
-| `era_contracts_branch` | ❌       | Explicit `era-contracts` branch. Defaults to protocol mapping. |
-| `zkos_wrapper_version` | ❌       | Explicit `zkos-wrapper` version. Defaults to protocol mapping. |
+| `zksync_os_tag`        | ❌       | OS release tag; defaults to the protocol mapping. |
+| `zksync_os_repository` | ❌       | OS release repository (`owner/name`); defaults to the protocol mapping. |
+| `era_contracts_branch` | v33.1 only | Contracts branch; otherwise defaults to the protocol mapping. |
+| `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; otherwise defaults to `main`. |
+| `zkos_wrapper_repository` | ❌   | Wrapper repository (`owner/name`); defaults to the protocol mapping. |
+| `zkos_wrapper_recursion_mode` | ❌ | Recursion mode passed to the wrapper; defaults to `use-reduced-log23-machine` for v33.1, otherwise uses the wrapper default. |
 | `commit_changes`       | ❌       | Whether to commit the updated keys. Defaults to `true`.        |
 | `open_pr`              | ❌       | Whether to open a PR. Defaults to `true`.                      |
 
@@ -99,7 +102,9 @@ Follow more detailed tutorial in the [GitHub Actions guide](../github-actions.md
 
 ### Outputs
 
-On **successful runs**, the workflow uploads `contracts_<protocol_version>.patch` Git patch file with the changes made to the `era-contracts` repository.
+On **successful runs**, the workflow uploads an `era-contracts-patch-<protocol_version>` artifact containing `era_contracts_<protocol_version>.patch`, with the changes made to the `era-contracts` repository.
+It also uploads a `verification-key-<protocol_version>` artifact containing `snark_vk_expected.json` and `vk_hash.txt`.
+The hash is extracted from the generated Plonk verifier contract and can be used to configure the server and prover.
 
 If `commit_changes` and `open_pr` are set to `true`, a PR is opened automatically with the changes.
 
@@ -112,6 +117,47 @@ On **failed runs**, the workflow saves logs from the workspace `.logs` directory
 ```admonish tip
 Artifacts can be downloaded directly from the workflow run page in GitHub Actions.
 ```
+
+### Protocol v33.1
+
+Select `protocol_version=v33.1`. The workflow defaults to:
+
+| Input | Default |
+| --- | --- |
+| `zksync_os_repository` | `matter-labs/zksync-os-private` |
+| `zksync_os_tag` | `v0.5.5` |
+| `zkos_wrapper_repository` | `matter-labs/zkos-wrapper-private` |
+| `zkos_wrapper_recursion_mode` | `use-reduced-log23-machine` |
+
+Supply `zkos_wrapper_version` and `era_contracts_branch` explicitly. Choose the wrapper revision
+and recursion mode used by the intended prover; the OS release tag alone does not determine the VK.
+The workflow fails before building if either required input is missing.
+Set `commit_changes=false` to generate the artifacts without committing contracts changes.
+Reusable workflow callers can supply the same overrides, and default to not committing changes.
+
+The `RELEASE_TOKEN` secret must have read access to the private OS release, the wrapper repository,
+and its private Git dependencies. Committing contracts changes also requires write access to
+the target contracts repository. The workflow uses GitHub CLI authentication for release downloads
+and Cargo Git dependencies.
+
+For a local run, first authenticate `gh` and check out the matching wrapper and contracts revisions:
+
+```bash
+WORKSPACE=/tmp/v33.1-vk \
+REPO_DIR=/path/to/era-contracts \
+ZKOS_WRAPPER_PATH=/path/to/zkos-wrapper-private \
+ZKSYNC_OS_REPOSITORY=matter-labs/zksync-os-private \
+ZKSYNC_OS_TAG=v0.5.5 \
+ZKOS_WRAPPER_RECURSION_MODE=use-reduced-log23-machine \
+    uv run -m scripts.update_vk
+```
+
+`ZKSYNC_OS_REPOSITORY` selects GitHub CLI downloads, which support `GH_TOKEN`, `GITHUB_TOKEN`,
+or local `gh auth login` credentials. It takes precedence over `ZKSYNC_OS_URL`.
+Without it, the existing `ZKSYNC_OS_URL` download path is retained.
+Local Cargo builds also need Git access to the wrapper's private dependencies; HTTPS users can
+run `gh auth setup-git --hostname github.com` and set `CARGO_NET_GIT_FETCH_WITH_CLI=true`.
+The OS binary is downloaded afresh on each run so reusing a workspace cannot select a previous release.
 
 ## Script dependencies
 

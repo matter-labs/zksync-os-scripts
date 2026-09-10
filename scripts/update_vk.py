@@ -1,9 +1,46 @@
 #!/usr/bin/env python3
 
+import os
+from pathlib import Path
+import tempfile
+
 from lib.script_context import ScriptCtx
 from lib.entry import run_script
 import lib.utils as utils
 import lib.config as config
+
+
+def download_os_binary(
+    ctx: ScriptCtx, tag: str, url: str, repository: str | None
+) -> Path:
+    asset_name = "multiblock_batch.bin"
+    output_file = ctx.workspace / asset_name
+    # A shared workspace may contain another release's binary. Always fetch the requested
+    # asset and only replace the previous file once the download succeeds.
+    if repository:
+        with tempfile.TemporaryDirectory(dir=ctx.workspace) as tmp:
+            downloaded = Path(tmp) / asset_name
+            # gh uses the authenticated API asset endpoint for private releases and reuses
+            # GH_TOKEN, GITHUB_TOKEN, or the operator's local GitHub CLI credentials.
+            ctx.sh(
+                [
+                    "gh",
+                    "release",
+                    "download",
+                    tag,
+                    "--repo",
+                    repository,
+                    "--pattern",
+                    asset_name,
+                    "--output",
+                    str(downloaded),
+                ]
+            )
+            downloaded.replace(output_file)
+    else:
+        asset_url = f"{url.rstrip('/')}/releases/download/{tag}/{asset_name}"
+        utils.download(asset_url, output_file, force=True)
+    return output_file
 
 
 def script(ctx: ScriptCtx) -> None:
@@ -22,6 +59,10 @@ def script(ctx: ScriptCtx) -> None:
     zkos_wrapper_path = utils.require_path("ZKOS_WRAPPER_PATH")
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
     zksync_os_url = utils.require_env("ZKSYNC_OS_URL", config.ZKSYNC_OS_URL)
+    zksync_os_repository = os.environ.get("ZKSYNC_OS_REPOSITORY")
+    recursion_mode = os.environ.get("ZKOS_WRAPPER_RECURSION_MODE")
+    if zksync_os_repository:
+        utils.require_cmds({"gh": ">=2.0"})
 
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file
@@ -38,10 +79,9 @@ def script(ctx: ScriptCtx) -> None:
     # Download ZKsync OS binary (multiblock_batch.bin) for given tag
     # ------------------------------------------------------------------ #
     with ctx.section("Download ZKsync OS binary", expected=1):
-        asset_name = "multiblock_batch.bin"
-        asset_url = f"{zksync_os_url}/releases/download/{zksync_os_tag}/{asset_name}"
-        output_file = ctx.workspace / asset_name
-        utils.download(asset_url, output_file)
+        binary_path = download_os_binary(
+            ctx, zksync_os_tag, zksync_os_url, zksync_os_repository
+        )
 
     # ------------------------------------------------------------------ #
     # Generate SNARK VK using zkos-wrapper
@@ -50,16 +90,24 @@ def script(ctx: ScriptCtx) -> None:
         vk_path = ctx.workspace / "snark_vk_expected.json"
         if vk_path.is_file():
             vk_path.unlink()
-        ctx.sh(
-            f"""
-            cargo run --bin wrapper --release -- \
-              generate-snark-vk
-              --input-binary {ctx.workspace / "multiblock_batch.bin"}
-              --trusted-setup-file {ctx.workspace / "setup.key"}
-              --output-dir {ctx.workspace}
-            """,
-            cwd=zkos_wrapper_path,
-        )
+        command = [
+            "cargo",
+            "run",
+            "--bin",
+            "wrapper",
+            "--release",
+            "--",
+            "generate-snark-vk",
+            "--input-binary",
+            str(binary_path),
+            "--trusted-setup-file",
+            str(crs_path),
+            "--output-dir",
+            str(ctx.workspace),
+        ]
+        if recursion_mode:
+            command.extend(["--recursion-mode", recursion_mode])
+        ctx.sh(command, cwd=zkos_wrapper_path)
 
     # ------------------------------------------------------------------ #
     # Copy VK and generate verifier contracts
@@ -94,6 +142,10 @@ def script(ctx: ScriptCtx) -> None:
             src = ctx.repo_dir / "tools" / "verifier-gen" / "data" / f"{contract}.sol"
             dst = verifiers_dir / f"{contract}.sol"
             utils.cp(src, dst)
+
+        vk_hash = utils.extract_vk_hash(verifiers_dir / "ZKsyncOSVerifierPlonk.sol")
+        (ctx.workspace / "vk_hash.txt").write_text(vk_hash + "\n", encoding="utf-8")
+        ctx.logger.info("Generated verification key hash: %s", vk_hash)
 
     # ------------------------------------------------------------------ #
     # Update test hashes

@@ -38,6 +38,9 @@ jobs:
       - name: Check formatting
         run: uv format --check
 
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests -v
+
 
   # Check server update script
   check-server:

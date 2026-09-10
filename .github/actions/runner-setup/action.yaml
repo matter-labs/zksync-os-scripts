@@ -4,35 +4,29 @@ description: 'Setup self-hosted runner for zksync workflows execution.'
 
 inputs:
   foundry_version:
-    type: string
     description: 'Version of foundry to use.'
     required: false
     # Pinned to a specific stable version to avoid breaking changes.
     default: 'v1.5.1'
   zksync_foundry_version:
-    type: string
     description: 'Version of zksync-foundry to use.'
     required: false
     # Pinned to a specific stable version to avoid breaking changes.
     default: 'v0.1.5'
   rust_version:
-    type: string
     description: 'Version of Rust toolchain to use.'
     required: false
     # Pin to nightly 1.89 version that all our repos are using
     default: 'nightly-2025-05-23'
   enable_cache:
-    type: string
     description: 'Whether to enable cache.'
     required: false
     default: 'false'
   save_cache:
-    type: string
     description: 'Whether to save cache.'
     required: false
     default: 'false'
   cache_shared_key:
-    type: string
     description: 'Shared key for cache.'
     required: false
     default: 'dev'
@@ -57,7 +51,7 @@ runs:
         if command -v sudo >/dev/null 2>&1; then
           SUDO=sudo
         fi
-        ${SUDO} apt update && ${SUDO} apt install -y libclang-dev wget jq libssl-dev pkg-config
+        ${SUDO} apt update && ${SUDO} apt install -y libclang-dev wget jq libssl-dev pkg-config gh
 
     - name: Install sccache
       if: ${{ contains(runner.name, 'matterlabs') }}
