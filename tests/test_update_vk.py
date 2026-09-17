@@ -246,11 +246,9 @@ class VkGenerationTests(unittest.TestCase):
                         f"/// @dev Contract was generated from a verification key with a hash of {vk_hash}\n"
                     )
                 download_binary.side_effect = (
-                    lambda ctx,
-                    tag,
-                    url,
-                    repository,
-                    asset="multiblock_batch.bin": workspace / asset
+                    lambda ctx, tag, url, repository, asset="multiblock_batch.bin": (
+                        workspace / asset
+                    )
                 )
                 commands = []
 
