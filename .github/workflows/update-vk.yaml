@@ -198,10 +198,27 @@ jobs:
         with:
           zksync_foundry_version: ${{ steps.define-versions.outputs.zksync_foundry_version }}
 
+      # The existing org read token cannot fetch the private protocol repository.
+      # Use the repository's configured bot app with read-only, explicit repo scope.
+      - name: Generate private dependency token
+        if: startsWith(inputs.protocol_version, 'v33.')
+        id: private-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.MATTERLABS_BOTS_APP_ID }}
+          private-key: ${{ secrets.MATTERLABS_BOTS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: read
+          repositories: |
+            era-contracts
+            zksync-protocol-private
+            zksync-airbender-private
+            zksync-os-private
+
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          github_token: ${{ secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
+          github_token: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           zkos_wrapper_repository: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
@@ -209,7 +226,7 @@ jobs:
       - name: Configure private dependency authentication
         shell: bash -e {0}
         env:
-          GH_TOKEN: ${{ secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
         run: |
           if [[ -n "$GH_TOKEN" ]]; then
             gh auth setup-git --hostname github.com
@@ -241,7 +258,7 @@ jobs:
       - name: Update vk
         timeout-minutes: 60
         env:
-          GH_TOKEN: ${{ secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN || github.token }}
+          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN || github.token }}
           CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
           ZKSYNC_OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
           ZKSYNC_OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
