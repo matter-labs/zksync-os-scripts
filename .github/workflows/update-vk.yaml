@@ -210,10 +210,16 @@ jobs:
           owner: ${{ github.repository_owner }}
           permission-contents: read
           repositories: |
-            era-contracts
             zksync-protocol-private
             zksync-airbender-private
             zksync-os-private
+
+      # The public contracts repo is outside the private app installation.
+      - name: Checkout contracts
+        uses: ./.github/actions/checkout-deps
+        with:
+          github_token: ${{ inputs.commit_changes && secrets.RELEASE_TOKEN || github.token }}
+          era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
 
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
@@ -221,7 +227,6 @@ jobs:
           github_token: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           zkos_wrapper_repository: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
-          era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
 
       - name: Configure private dependency authentication
         shell: bash -e {0}
