@@ -148,8 +148,10 @@ The FFLONK verifier is refreshed only when it exists in the target checkout: v33
 while older versions retain both verifiers.
 
 For v33, dependency checkouts, downloads, and Cargo use the configured
-`MATTERLABS_BOTS` GitHub App with contents-read access scoped to the contracts,
-private protocol, private Airbender, and private OS repositories. The app must be
+`MATTERLABS_BOTS` GitHub App with contents-read access scoped to the private
+protocol, private Airbender, and private OS repositories. Public `era-contracts`
+is checked out separately using the workflow token (or `RELEASE_TOKEN` when
+contracts writes are enabled), without requesting access through the app. The app must be
 installed on these repositories. Older protocols use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`,
 falling back to `RELEASE_TOKEN`.
 The token must have read access to the private OS release and the wrapper's private Git dependencies.
