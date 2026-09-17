@@ -7,6 +7,44 @@ on:
         description: '[mandatory] Protocol version to update.'
         type: string
         required: true
+      zksync_os_tag:
+        description: '[optional] OS release tag. Defaults to the selected protocol mapping.'
+        type: string
+        required: false
+      zksync_os_repository:
+        description: '[optional] OS release repository (owner/name). Defaults to the selected protocol mapping.'
+        type: string
+        required: false
+      era_contracts_branch:
+        description: 'Contracts branch to update. Required for v33.1/v33.2; otherwise derived from protocol version.'
+        type: string
+        required: false
+      zkos_wrapper_version:
+        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision.'
+        type: string
+        required: false
+      zkos_wrapper_repository:
+        description: '[optional] Wrapper repository (owner/name). Defaults to the selected protocol mapping.'
+        type: string
+        required: false
+      zkos_wrapper_layout:
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2 default to monorepo.'
+        type: string
+        required: false
+      zkos_wrapper_recursion_mode:
+        description: '[optional] Recursion mode for legacy wrappers. Leave empty for monorepo wrappers.'
+        type: string
+        required: false
+      commit_changes:
+        description: '[mandatory] Whether to commit the contracts changes back to the repository. If set to false, changes will not be committed, but a patch file will be saved as an artifact.'
+        type: boolean
+        required: false
+        default: false
+      open_pr:
+        description: '[optional] Whether to open a PR for the committed changes. If not, and commit_changes is true, changes will be pushed directly to the chosen branch.'
+        type: boolean
+        required: false
+        default: false
   workflow_dispatch:
     inputs:
       protocol_version:
@@ -18,22 +56,38 @@ on:
           - 'v30.2'
           - 'v31.0'
           - 'v32.0'
+          - 'v33.1'
+          - 'v33.2'
       zksync_os_tag:
-        description: '[mandatory] Git tag of zksync-os to use for update.'
+        description: '[optional] OS release tag. Defaults to the selected protocol mapping.'
         type: string
-        required: true
-        default: 'v0.5.0'
+        required: false
+      zksync_os_repository:
+        description: '[optional] OS release repository (owner/name). Defaults to the selected protocol mapping.'
+        type: string
+        required: false
       era_contracts_branch:
-        description: '[optional] Explicit Git branch of era-contracts to use. If not specified, derived from protocol version.'
+        description: 'Contracts branch to update. Required for v33.1/v33.2; otherwise derived from protocol version.'
         type: string
         required: false
       zkos_wrapper_version:
-        description: '[optional] Explicit version of zkos-wrapper to use. If not specified, derived from protocol version.'
+        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision.'
         type: string
         required: false
-        default: 'main'
+      zkos_wrapper_repository:
+        description: '[optional] Wrapper repository (owner/name). Defaults to the selected protocol mapping.'
+        type: string
+        required: false
+      zkos_wrapper_layout:
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2 default to monorepo.'
+        type: string
+        required: false
+      zkos_wrapper_recursion_mode:
+        description: '[optional] Recursion mode for legacy wrappers. Leave empty for monorepo wrappers.'
+        type: string
+        required: false
       commit_changes:
-        description: '[mandatory] Whether to commit the server changes back to the repository. If set to false, changes will not be committed, but a patch file will be saved as an artifact.'
+        description: '[mandatory] Whether to commit the contracts changes back to the repository. If set to false, changes will not be committed, but a patch file will be saved as an artifact.'
         type: boolean
         required: false
         default: true
@@ -71,6 +125,10 @@ env:
   ZKOS_WRAPPER_VERSION_V32: "main"
   ERA_CONTRACTS_VERSION_V32: "draft-v32"
   ZKSYNC_OS_TAG_V32: "v0.5.0"
+  # v33 shares the v0.5.5 OS release; contracts revisions remain explicit.
+  ZKSYNC_FOUNDRY_VERSION_V33: "v0.1.5"
+  ZKSYNC_OS_TAG_V33: "v0.5.5"
+  ZKOS_WRAPPER_VERSION_V33_2: "f28fbaac166383ef19cabb96ea4c7201a8096cc3"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
@@ -85,26 +143,52 @@ jobs:
 
       - name: Define tools versions
         id: define-versions
+        env:
+          PROTOCOL_VERSION: ${{ inputs.protocol_version }}
+          OS_TAG: ${{ inputs.zksync_os_tag }}
+          OS_REPOSITORY: ${{ inputs.zksync_os_repository }}
+          CONTRACTS_BRANCH: ${{ inputs.era_contracts_branch }}
+          WRAPPER_VERSION: ${{ inputs.zkos_wrapper_version }}
+          WRAPPER_REPOSITORY: ${{ inputs.zkos_wrapper_repository }}
+          WRAPPER_RECURSION_MODE: ${{ inputs.zkos_wrapper_recursion_mode }}
+          WRAPPER_LAYOUT: ${{ inputs.zkos_wrapper_layout }}
         run: |
-          if [[ "${{ inputs.protocol_version }}" == "v30.2" ]]; then
-            echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
-            echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
-            echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V30 }}" >> "${GITHUB_OUTPUT}"
-            echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V30 }}" >> "${GITHUB_OUTPUT}"
-          elif [[ "${{ inputs.protocol_version }}" == "v31.0" ]]; then
-            echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
-            echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
-            echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V31 }}" >> "${GITHUB_OUTPUT}"
-            echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V31 }}" >> "${GITHUB_OUTPUT}"
-          elif [[ "${{ inputs.protocol_version }}" == "v32.0" ]]; then
-            echo "zksync_foundry_version=${{ env.ZKSYNC_FOUNDRY_VERSION_V32 }}" >> "${GITHUB_OUTPUT}"
-            echo "zkos_wrapper_version=${{ inputs.zkos_wrapper_version != '' && inputs.zkos_wrapper_version || env.ZKOS_WRAPPER_VERSION_V32 }}" >> "${GITHUB_OUTPUT}"
-            echo "era_contracts_version=${{ inputs.era_contracts_branch != '' && inputs.era_contracts_branch || env.ERA_CONTRACTS_VERSION_V32 }}" >> "${GITHUB_OUTPUT}"
-            echo "zksync_os_tag=${{ inputs.zksync_os_tag != '' && inputs.zksync_os_tag || env.ZKSYNC_OS_TAG_V32 }}" >> "${GITHUB_OUTPUT}"
-          else
-            echo "Unsupported protocol version: ${{ inputs.protocol_version }}"
-            exit 1
+          crs_power=24
+          case "$PROTOCOL_VERSION" in
+            v30.2) series=V30 ;;
+            v31.0) series=V31 ;;
+            v32.0) series=V32 ;;
+            v33.1)
+              : "${WRAPPER_VERSION:?v33.1 requires a wrapper revision matching the prover}"
+              : "${CONTRACTS_BRANCH:?v33.1 requires an explicit contracts branch}"
+              series=V33
+              crs_power=25
+              ;;
+            v33.2)
+              : "${CONTRACTS_BRANCH:?v33.2 requires an explicit contracts branch}"
+              WRAPPER_VERSION="${WRAPPER_VERSION:-$ZKOS_WRAPPER_VERSION_V33_2}"
+              series=V33
+              ;;
+            *) echo "Unsupported protocol version: $PROTOCOL_VERSION"; exit 1 ;;
+          esac
+          foundry_var="ZKSYNC_FOUNDRY_VERSION_${series}"
+          wrapper_var="ZKOS_WRAPPER_VERSION_${series}"
+          contracts_var="ERA_CONTRACTS_VERSION_${series}"
+          os_tag_var="ZKSYNC_OS_TAG_${series}"
+          if [[ "$series" == V33 ]]; then
+            OS_REPOSITORY="${OS_REPOSITORY:-matter-labs/zksync-os-private}"
+            WRAPPER_REPOSITORY="${WRAPPER_REPOSITORY:-matter-labs/zksync-protocol-private}"
+            WRAPPER_LAYOUT="${WRAPPER_LAYOUT:-monorepo}"
           fi
+          echo "zksync_foundry_version=${!foundry_var}" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_version=${WRAPPER_VERSION:-${!wrapper_var}}" >> "$GITHUB_OUTPUT"
+          echo "era_contracts_version=${CONTRACTS_BRANCH:-${!contracts_var}}" >> "$GITHUB_OUTPUT"
+          echo "zksync_os_tag=${OS_TAG:-${!os_tag_var}}" >> "$GITHUB_OUTPUT"
+          echo "zksync_os_repository=${OS_REPOSITORY:-matter-labs/zksync-os}" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_repository=${WRAPPER_REPOSITORY:-matter-labs/zkos-wrapper}" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_recursion_mode=$WRAPPER_RECURSION_MODE" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_layout=${WRAPPER_LAYOUT:-legacy}" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_crs_power=$crs_power" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repo
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -114,19 +198,82 @@ jobs:
         with:
           zksync_foundry_version: ${{ steps.define-versions.outputs.zksync_foundry_version }}
 
+      # The existing org read token cannot fetch the private protocol repository.
+      # Use the repository's configured bot app with read-only, explicit repo scope.
+      - name: Generate private dependency token
+        if: startsWith(inputs.protocol_version, 'v33.')
+        id: private-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.MATTERLABS_BOTS_APP_ID }}
+          private-key: ${{ secrets.MATTERLABS_BOTS_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: read
+          repositories: |
+            zksync-protocol-private
+            zksync-airbender-private
+            zksync-os-private
+
+      # The public contracts repo is outside the private app installation.
+      - name: Checkout contracts
+        uses: ./.github/actions/checkout-deps
+        with:
+          github_token: ${{ inputs.commit_changes && secrets.RELEASE_TOKEN || github.token }}
+          era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
+
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          github_token: ${{ secrets.RELEASE_TOKEN }}
+          github_token: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
-          era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
+          zkos_wrapper_repository: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
+
+      - name: Configure private dependency authentication
+        shell: bash -e {0}
+        env:
+          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
+        run: |
+          if [[ -n "$GH_TOKEN" ]]; then
+            gh auth setup-git --hostname github.com
+          fi
+
+      - name: Record generation inputs
+        env:
+          PROTOCOL_VERSION: ${{ inputs.protocol_version }}
+          OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
+          OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
+          WRAPPER_REPOSITORY: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
+          WRAPPER_LAYOUT: ${{ steps.define-versions.outputs.zkos_wrapper_layout }}
+          CRS_POWER: ${{ steps.define-versions.outputs.zkos_wrapper_crs_power }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, pathlib, subprocess
+          workspace = pathlib.Path(os.environ["WORKSPACE"])
+          def revision(path):
+              return subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+          manifest = {key.lower(): os.environ[key] for key in (
+              "PROTOCOL_VERSION", "OS_REPOSITORY", "OS_TAG", "WRAPPER_REPOSITORY", "WRAPPER_LAYOUT", "CRS_POWER"
+          )}
+          manifest.update(wrapper_revision=revision(workspace / "zkos-wrapper"),
+                          contracts_revision=revision(workspace / "era-contracts"),
+                          scripts_revision=revision(pathlib.Path.cwd()))
+          (workspace / "generation-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PYTHON
 
       - name: Update vk
-        timeout-minutes: 30
+        timeout-minutes: 60
+        env:
+          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN || github.token }}
+          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+          ZKSYNC_OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
+          ZKSYNC_OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
+          ZKOS_WRAPPER_RECURSION_MODE: ${{ steps.define-versions.outputs.zkos_wrapper_recursion_mode }}
+          ZKOS_WRAPPER_LAYOUT: ${{ steps.define-versions.outputs.zkos_wrapper_layout }}
+          ZKOS_WRAPPER_CRS_POWER: ${{ steps.define-versions.outputs.zkos_wrapper_crs_power }}
+          RUST_MIN_STACK: '268435456'
         run: |
           REPO_DIR=${WORKSPACE}/era-contracts \
           ZKOS_WRAPPER_PATH=${WORKSPACE}/zkos-wrapper \
-          ZKSYNC_OS_TAG="${{ steps.define-versions.outputs.zksync_os_tag }}" \
             uv run -m scripts.update_vk
 
       - name: Save git patch
@@ -140,6 +287,18 @@ jobs:
         with:
           name: era-contracts-patch-${{ inputs.protocol_version }}
           path: "era_contracts_${{ inputs.protocol_version }}.patch"
+
+      - name: Upload verification key
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
+        with:
+          name: verification-key-${{ inputs.protocol_version }}
+          path: |
+            ${{ env.WORKSPACE }}/snark_vk_expected.json
+            ${{ env.WORKSPACE }}/vk_hash.txt
+            ${{ env.WORKSPACE }}/risc_wrapper_vk.json
+            ${{ env.WORKSPACE }}/compression_vk.json
+            ${{ env.WORKSPACE }}/generation-manifest.json
+          if-no-files-found: error
 
       - name: Commit era-contracts changes
         if: success() && inputs.commit_changes
