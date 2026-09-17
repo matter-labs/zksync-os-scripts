@@ -62,7 +62,7 @@ which should be specified via corresponding path environment variables:
 | Repository    | Env Variable        | Protocol version → Branch Mapping |
 | :------------ | :------------------ | :----------------------- |
 | [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-zksync-os`<br />**v32.0** → `draft-v32` |
-| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision |
+| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision; **v33.2** → pinned PR #49 revision |
 
 Please, additionally check [protocol compatibility](../protocol-compatibility.md) to ensure the correct versions are used.
 ```
@@ -85,10 +85,10 @@ that can be triggered manually via GitHub Actions UI interface.
 | `protocol_version`     | ✅       | Protocol version to update verification keys for.              |
 | `zksync_os_tag`        | ❌       | OS release tag; defaults to the protocol mapping. |
 | `zksync_os_repository` | ❌       | OS release repository (`owner/name`); defaults to the protocol mapping. |
-| `era_contracts_branch` | v33.1 only | Contracts branch; otherwise defaults to the protocol mapping. |
-| `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; otherwise defaults to `main`. |
+| `era_contracts_branch` | v33.1/v33.2 | Contracts branch; otherwise defaults to the protocol mapping. |
+| `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; v33.2 defaults to `f28fbaac166383ef19cabb96ea4c7201a8096cc3`, older versions to `main`. |
 | `zkos_wrapper_repository` | ❌   | Wrapper repository (`owner/name`); defaults to the protocol mapping. |
-| `zkos_wrapper_layout` | ❌ | `monorepo` for the current v33.1 wrapper, or `legacy` for the standalone wrapper. |
+| `zkos_wrapper_layout` | ❌ | `monorepo` for the v33.1/v33.2 wrappers, or `legacy` for the standalone wrapper. |
 | `zkos_wrapper_recursion_mode` | ❌ | Recursion mode for legacy wrappers; leave empty for the monorepo wrapper. |
 | `commit_changes`       | ❌       | Whether to commit the updated keys. Defaults to `true`.        |
 | `open_pr`              | ❌       | Whether to open a PR. Defaults to `true`.                      |
@@ -140,7 +140,7 @@ The monorepo layout builds the `zkos-wrapper/` workspace with `security_100` exp
 It runs `generate-vk` with both `multiblock_batch.bin` and `multiblock_batch.text`, the trusted setup,
 and `--check-aux-params`, matching the application-bound configuration of prover v0.9.5-private.
 That prover pins `zksync-protocol-private` revision `621e27502f7baf21b0eeafe742764ab474aa0f6d`.
-The monorepo wrapper uses the larger `setup_2^25.key` trusted setup; the older
+The v33.1 monorepo wrapper uses the larger `setup_2^25.key` trusted setup; the older
 `setup_2^24.key` has too few points for its SNARK domain. Both files are checksum-verified.
 The script also raises the main-thread stack limit and supplies `RUST_MIN_STACK` for worker threads.
 Older protocols continue using the standalone `generate-snark-vk` CLI and the smaller setup.
@@ -149,8 +149,8 @@ while older versions retain both verifiers.
 
 Downloads and Cargo use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`, falling back to `RELEASE_TOKEN`.
 The token must have read access to the private OS release and the wrapper's private Git dependencies.
-Dependency checkouts and contracts commits use `RELEASE_TOKEN`, which needs access to the
-wrapper repository and write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
+Dependency checkouts use the same read-token fallback. Contracts commits use `RELEASE_TOKEN`,
+which needs write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
 and Cargo Git dependencies.
 
 For a local run, first authenticate `gh` and check out the matching wrapper and contracts revisions:
@@ -171,6 +171,35 @@ Without it, the existing `ZKSYNC_OS_URL` download path is retained.
 Local Cargo builds also need Git access to the wrapper's private dependencies; HTTPS users can
 run `gh auth setup-git --hostname github.com` and set `CARGO_NET_GIT_FETCH_WITH_CLI=true`.
 The OS binary is downloaded afresh on each run so reusing a workspace cannot select a previous release.
+
+### Protocol v33.2
+
+v33.2 reuses v33.1's OS release (`matter-labs/zksync-os-private`, `v0.5.5`) and
+100-bit application-bound proving configuration. It defaults to protocol PR #49
+at `f28fbaac166383ef19cabb96ea4c7201a8096cc3`, including the merge of `dev` used by
+the prover. Its SNARK domain is 2^22, so the workflow uses the existing
+checksum-verified `setup_2^24.key`. v33.1 continues using the 2^25 setup.
+Local callers can select this setup with `ZKOS_WRAPPER_CRS_POWER=24`.
+
+Run generation on the high-performance CI runner, with an explicit compatible
+contracts revision and contracts writes disabled:
+
+```bash
+gh workflow run update-vk.yaml --repo matter-labs/zksync-os-scripts \
+  --ref di/v33.1-vk \
+  -f protocol_version=v33.2 \
+  -f era_contracts_branch=8c93047d8a3b2af7333c0efdd0c1b65a7a27dd25 \
+  -f zkos_wrapper_version=f28fbaac166383ef19cabb96ea4c7201a8096cc3 \
+  -f commit_changes=false -f open_pr=false
+```
+
+The contracts revision above is from `release/v0.33.0-atomic-interop`; the runner
+only prepares a downloadable patch. It does not change the server or deploy
+contracts. The VK artifact also includes intermediate wrapper VKs when emitted
+by the CLI and `generation-manifest.json` with resolved source commits, OS asset
+SHA-256 hashes, and CRS selection. Verify these against the prover pins and
+bundled program before registering the generated hash. VK generation alone does
+not verify a real proof under the new key.
 
 ## Script dependencies
 

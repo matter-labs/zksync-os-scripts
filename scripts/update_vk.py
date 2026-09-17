@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import hashlib
+import json
 import os
 from pathlib import Path
 import resource
@@ -83,6 +85,11 @@ def script(ctx: ScriptCtx) -> None:
                 "The monorepo wrapper uses the unified verifier; omit ZKOS_WRAPPER_RECURSION_MODE"
             )
         zkos_wrapper_path /= "zkos-wrapper"
+    crs_power = os.environ.get(
+        "ZKOS_WRAPPER_CRS_POWER", "25" if wrapper_layout == "monorepo" else "24"
+    )
+    if crs_power not in {"24", "25"}:
+        raise ValueError(f"Unsupported CRS power: {crs_power}")
     if zksync_os_repository:
         utils.require_cmds({"gh": ">=2.0"})
 
@@ -90,8 +97,9 @@ def script(ctx: ScriptCtx) -> None:
     # Download CRS (trusted setup) file
     # ------------------------------------------------------------------ #
     with ctx.section("Download CRS file", expected=30):
-        if wrapper_layout == "monorepo":
-            # The 100-bit wrapper's SNARK domain has 2^25 rows.
+        if crs_power == "25":
+            # v33.1 needs 2^25 points; PR #49 reduces the domain to 2^22,
+            # so v33.2 can use the existing checksum-pinned 2^24 setup.
             crs_path = ctx.workspace / "setup_2_25.key"
             crs_url = config.CRS_FILE_2_25_URL
             crs_checksum = config.CRS_FILE_2_25_SHA256_CHECKSUM
@@ -120,6 +128,17 @@ def script(ctx: ScriptCtx) -> None:
                 zksync_os_repository,
                 "multiblock_batch.text",
             )
+
+    manifest_path = ctx.workspace / "generation-manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        files = [binary_path]
+        if wrapper_layout == "monorepo":
+            files.append(text_path)
+        manifest["program_sha256"] = {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in files
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
     # ------------------------------------------------------------------ #
     # Generate SNARK VK using zkos-wrapper
