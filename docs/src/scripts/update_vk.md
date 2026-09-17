@@ -147,7 +147,11 @@ Older protocols continue using the standalone `generate-snark-vk` CLI and the sm
 The FFLONK verifier is refreshed only when it exists in the target checkout: v33 uses PLONK alone,
 while older versions retain both verifiers.
 
-Downloads and Cargo use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`, falling back to `RELEASE_TOKEN`.
+For v33, dependency checkouts, downloads, and Cargo use the configured
+`MATTERLABS_BOTS` GitHub App with contents-read access scoped to the contracts,
+private protocol, private Airbender, and private OS repositories. The app must be
+installed on these repositories. Older protocols use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`,
+falling back to `RELEASE_TOKEN`.
 The token must have read access to the private OS release and the wrapper's private Git dependencies.
 Dependency checkouts use the same read-token fallback. Contracts commits use `RELEASE_TOKEN`,
 which needs write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
