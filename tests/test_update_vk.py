@@ -171,6 +171,25 @@ class WorkflowVersionTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(missing, result.stderr)
 
+    def test_v33_2_reuses_os_and_pins_new_wrapper(self):
+        result, values = self.select("v33.2", CONTRACTS_BRANCH="contracts-v33")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(values["zksync_os_tag"], "v0.5.5")
+        self.assertEqual(
+            values["zksync_os_repository"], "matter-labs/zksync-os-private"
+        )
+        self.assertEqual(
+            values["zkos_wrapper_repository"], "matter-labs/zksync-protocol-private"
+        )
+        self.assertEqual(
+            values["zkos_wrapper_version"], "f28fbaac166383ef19cabb96ea4c7201a8096cc3"
+        )
+        self.assertEqual(values["zkos_wrapper_layout"], "monorepo")
+        self.assertEqual(values["zkos_wrapper_crs_power"], "24")
+        result, _ = self.select("v33.2")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("contracts branch", result.stderr)
+
     def test_explicit_overrides(self):
         result, values = self.select(
             "v33.1",
@@ -198,10 +217,11 @@ class VkGenerationTests(unittest.TestCase):
     @patch("scripts.update_vk.utils.download")
     @patch("scripts.update_vk.download_os_binary")
     def test_generation_and_hash_artifacts(self, download_binary, _download, _require):
-        for layout, mode in [
-            ("legacy", ""),
-            ("legacy", "use-reduced-log23-machine"),
-            ("monorepo", ""),
+        for layout, mode, crs_power in [
+            ("legacy", "", "24"),
+            ("legacy", "use-reduced-log23-machine", "24"),
+            ("monorepo", "", "25"),
+            ("monorepo", "", "24"),
         ]:
             with (
                 self.subTest(layout=layout, mode=mode),
@@ -259,6 +279,7 @@ class VkGenerationTests(unittest.TestCase):
                         "ZKSYNC_OS_REPOSITORY": "matter-labs/zksync-os-private",
                         "ZKOS_WRAPPER_RECURSION_MODE": mode,
                         "ZKOS_WRAPPER_LAYOUT": layout,
+                        "ZKOS_WRAPPER_CRS_POWER": crs_power,
                     },
                     clear=True,
                 ):
@@ -276,7 +297,10 @@ class VkGenerationTests(unittest.TestCase):
                     )
                     self.assertEqual(
                         args[args.index("--trusted-setup") + 1],
-                        str(workspace / "setup_2_25.key"),
+                        str(
+                            workspace
+                            / ("setup_2_25.key" if crs_power == "25" else "setup.key")
+                        ),
                     )
                     self.assertIn("--check-aux-params", args)
                     self.assertIn("--no-default-features", command)

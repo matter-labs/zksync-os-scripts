@@ -16,11 +16,11 @@ on:
         type: string
         required: false
       era_contracts_branch:
-        description: 'Contracts branch to update. Required for v33.1; otherwise derived from protocol version.'
+        description: 'Contracts branch to update. Required for v33.1/v33.2; otherwise derived from protocol version.'
         type: string
         required: false
       zkos_wrapper_version:
-        description: 'Wrapper revision matching the prover. Required for v33.1; otherwise defaults to main.'
+        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision.'
         type: string
         required: false
       zkos_wrapper_repository:
@@ -28,7 +28,7 @@ on:
         type: string
         required: false
       zkos_wrapper_layout:
-        description: '[optional] Wrapper layout: legacy or monorepo. v33.1 defaults to monorepo.'
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2 default to monorepo.'
         type: string
         required: false
       zkos_wrapper_recursion_mode:
@@ -57,6 +57,7 @@ on:
           - 'v31.0'
           - 'v32.0'
           - 'v33.1'
+          - 'v33.2'
       zksync_os_tag:
         description: '[optional] OS release tag. Defaults to the selected protocol mapping.'
         type: string
@@ -66,11 +67,11 @@ on:
         type: string
         required: false
       era_contracts_branch:
-        description: 'Contracts branch to update. Required for v33.1; otherwise derived from protocol version.'
+        description: 'Contracts branch to update. Required for v33.1/v33.2; otherwise derived from protocol version.'
         type: string
         required: false
       zkos_wrapper_version:
-        description: 'Wrapper revision matching the prover. Required for v33.1; otherwise defaults to main.'
+        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision.'
         type: string
         required: false
       zkos_wrapper_repository:
@@ -78,7 +79,7 @@ on:
         type: string
         required: false
       zkos_wrapper_layout:
-        description: '[optional] Wrapper layout: legacy or monorepo. v33.1 defaults to monorepo.'
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2 default to monorepo.'
         type: string
         required: false
       zkos_wrapper_recursion_mode:
@@ -124,9 +125,10 @@ env:
   ZKOS_WRAPPER_VERSION_V32: "main"
   ERA_CONTRACTS_VERSION_V32: "draft-v32"
   ZKSYNC_OS_TAG_V32: "v0.5.0"
-  # v33.1 has no agreed wrapper revision or contracts branch yet; require overrides.
+  # v33 shares the v0.5.5 OS release; contracts revisions remain explicit.
   ZKSYNC_FOUNDRY_VERSION_V33: "v0.1.5"
   ZKSYNC_OS_TAG_V33: "v0.5.5"
+  ZKOS_WRAPPER_VERSION_V33_2: "f28fbaac166383ef19cabb96ea4c7201a8096cc3"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
@@ -151,6 +153,7 @@ jobs:
           WRAPPER_RECURSION_MODE: ${{ inputs.zkos_wrapper_recursion_mode }}
           WRAPPER_LAYOUT: ${{ inputs.zkos_wrapper_layout }}
         run: |
+          crs_power=24
           case "$PROTOCOL_VERSION" in
             v30.2) series=V30 ;;
             v31.0) series=V31 ;;
@@ -158,6 +161,12 @@ jobs:
             v33.1)
               : "${WRAPPER_VERSION:?v33.1 requires a wrapper revision matching the prover}"
               : "${CONTRACTS_BRANCH:?v33.1 requires an explicit contracts branch}"
+              series=V33
+              crs_power=25
+              ;;
+            v33.2)
+              : "${CONTRACTS_BRANCH:?v33.2 requires an explicit contracts branch}"
+              WRAPPER_VERSION="${WRAPPER_VERSION:-$ZKOS_WRAPPER_VERSION_V33_2}"
               series=V33
               ;;
             *) echo "Unsupported protocol version: $PROTOCOL_VERSION"; exit 1 ;;
@@ -179,6 +188,7 @@ jobs:
           echo "zkos_wrapper_repository=${WRAPPER_REPOSITORY:-matter-labs/zkos-wrapper}" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_recursion_mode=$WRAPPER_RECURSION_MODE" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_layout=${WRAPPER_LAYOUT:-legacy}" >> "$GITHUB_OUTPUT"
+          echo "zkos_wrapper_crs_power=$crs_power" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repo
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -191,7 +201,7 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          github_token: ${{ secrets.RELEASE_TOKEN }}
+          github_token: ${{ secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           zkos_wrapper_repository: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
@@ -205,6 +215,29 @@ jobs:
             gh auth setup-git --hostname github.com
           fi
 
+      - name: Record generation inputs
+        env:
+          PROTOCOL_VERSION: ${{ inputs.protocol_version }}
+          OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
+          OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
+          WRAPPER_REPOSITORY: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
+          WRAPPER_LAYOUT: ${{ steps.define-versions.outputs.zkos_wrapper_layout }}
+          CRS_POWER: ${{ steps.define-versions.outputs.zkos_wrapper_crs_power }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os, pathlib, subprocess
+          workspace = pathlib.Path(os.environ["WORKSPACE"])
+          def revision(path):
+              return subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+          manifest = {key.lower(): os.environ[key] for key in (
+              "PROTOCOL_VERSION", "OS_REPOSITORY", "OS_TAG", "WRAPPER_REPOSITORY", "WRAPPER_LAYOUT", "CRS_POWER"
+          )}
+          manifest.update(wrapper_revision=revision(workspace / "zkos-wrapper"),
+                          contracts_revision=revision(workspace / "era-contracts"),
+                          scripts_revision=revision(pathlib.Path.cwd()))
+          (workspace / "generation-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PYTHON
+
       - name: Update vk
         timeout-minutes: 60
         env:
@@ -214,6 +247,7 @@ jobs:
           ZKSYNC_OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}
           ZKOS_WRAPPER_RECURSION_MODE: ${{ steps.define-versions.outputs.zkos_wrapper_recursion_mode }}
           ZKOS_WRAPPER_LAYOUT: ${{ steps.define-versions.outputs.zkos_wrapper_layout }}
+          ZKOS_WRAPPER_CRS_POWER: ${{ steps.define-versions.outputs.zkos_wrapper_crs_power }}
           RUST_MIN_STACK: '268435456'
         run: |
           REPO_DIR=${WORKSPACE}/era-contracts \
@@ -239,6 +273,9 @@ jobs:
           path: |
             ${{ env.WORKSPACE }}/snark_vk_expected.json
             ${{ env.WORKSPACE }}/vk_hash.txt
+            ${{ env.WORKSPACE }}/risc_wrapper_vk.json
+            ${{ env.WORKSPACE }}/compression_vk.json
+            ${{ env.WORKSPACE }}/generation-manifest.json
           if-no-files-found: error
 
       - name: Commit era-contracts changes
