@@ -143,6 +143,9 @@ jobs:
 
   check-vk:
     runs-on: matterlabs-ci-runner-high-performance
+    permissions:
+      contents: read
+      id-token: write
     name: VK update (${{ inputs.protocol_version }})
     steps:
 
@@ -206,6 +209,8 @@ jobs:
         uses: ./.github/actions/runner-setup
         with:
           zksync_foundry_version: ${{ steps.define-versions.outputs.zksync_foundry_version }}
+          gcp_workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          gcp_sccache_service_account: ${{ secrets.GCP_SCCACHE_WRITER_SERVICE_ACCOUNT }}
 
       # The existing org read token cannot fetch the private protocol repository.
       # Use the repository's configured bot app with read-only, explicit repo scope.
