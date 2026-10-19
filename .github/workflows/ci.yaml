@@ -42,6 +42,9 @@ jobs:
   # Check server update script
   check-server:
     uses: ./.github/workflows/update-server.yaml
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -56,6 +59,9 @@ jobs:
   # Check verification keys update script
   check-vk:
     uses: ./.github/workflows/update-vk.yaml
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:

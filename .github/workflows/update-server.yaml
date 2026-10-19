@@ -73,6 +73,9 @@ jobs:
 
   check-server:
     runs-on: matterlabs-ci-runner-high-performance
+    permissions:
+      contents: read
+      id-token: write
     name: Server update (${{ inputs.protocol_version }})
     steps:
 
@@ -101,6 +104,8 @@ jobs:
         uses: ./.github/actions/runner-setup
         with:
           zksync_foundry_version: ${{ steps.define-versions.outputs.zksync_foundry_version }}
+          gcp_workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          gcp_sccache_service_account: ${{ secrets.GCP_SCCACHE_WRITER_SERVICE_ACCOUNT }}
 
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
