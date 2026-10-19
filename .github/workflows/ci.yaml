@@ -45,6 +45,9 @@ jobs:
   # Check verification keys update script
   check-vk:
     uses: ./.github/workflows/update-vk.yaml
+    permissions:
+      contents: read
+      id-token: write
     with:
       protocol_version: v33.2
       # The tag holds the released v33.2 key, so regeneration runs against known-good contracts.
