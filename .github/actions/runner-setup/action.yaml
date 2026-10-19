@@ -3,6 +3,16 @@ name: 'Setup runner'
 description: 'Setup self-hosted runner for zksync workflows execution.'
 
 inputs:
+  gcp_workload_identity_provider:
+    description: >-
+      Workload Identity Provider used to mint the sccache bucket credentials. Composite actions
+      cannot read `secrets`, so callers pass it in. Leave empty to build without the shared cache.
+    required: false
+    default: ''
+  gcp_sccache_service_account:
+    description: 'Service account with read-write access to the sccache bucket.'
+    required: false
+    default: ''
   foundry_version:
     type: string
     description: 'Version of foundry to use.'
@@ -72,13 +82,20 @@ runs:
         echo "${PWD}/${SCCACHE_FILENAME}" >> "${GITHUB_PATH}"
         export PATH="${PWD}/${SCCACHE_FILENAME}:${PATH}"
 
+    - name: Authenticate to Google Cloud for the sccache bucket
+      if: ${{ contains(runner.name, 'matterlabs') && inputs.gcp_workload_identity_provider != '' }}
+      uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+      with:
+        workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+        service_account: ${{ inputs.gcp_sccache_service_account }}
+
     - name: Setup sccache
-      if: ${{ contains(runner.name, 'matterlabs') }}
+      if: ${{ contains(runner.name, 'matterlabs') && inputs.gcp_workload_identity_provider != '' }}
       shell: 'bash -ex {0}'
       run: |
         echo SCCACHE_CACHE_SIZE=50G >> "${GITHUB_ENV}"
         echo SCCACHE_GCS_BUCKET=matterlabs-infra-sccache-storage >> "${GITHUB_ENV}"
-        echo SCCACHE_GCS_SERVICE_ACCOUNT=gha-ci-runners@matterlabs-infra.iam.gserviceaccount.com >> "${GITHUB_ENV}"
+        echo SCCACHE_GCS_KEY_PATH=${GOOGLE_GHA_CREDS_PATH} >> "${GITHUB_ENV}"
         echo SCCACHE_ERROR_LOG=/tmp/sccache_log.txt >> "${GITHUB_ENV}"
         echo SCCACHE_GCS_RW_MODE=READ_WRITE >> "${GITHUB_ENV}"
         echo RUSTC_WRAPPER=sccache >> "${GITHUB_ENV}"
