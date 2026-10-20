@@ -1,0 +1,185 @@
+name: Update ZiSK verification keys
+
+on:
+  workflow_call:
+    inputs:
+      zisk_release_tag:
+        description: '[mandatory] matter-labs/zksync-os-zisk release tag to pin, e.g. 0.0.9.'
+        type: string
+        required: true
+      era_contracts_branch:
+        description: '[mandatory] Contracts branch to update, e.g. draft/v0.34.0.'
+        type: string
+        required: true
+      commit_changes:
+        description: '[mandatory] Whether to commit the contracts changes back to the repository. If set to false, changes will not be committed, but a patch file will be saved as an artifact.'
+        type: boolean
+        required: false
+        default: false
+      open_pr:
+        description: '[optional] Whether to open a PR for the committed changes. If not, and commit_changes is true, changes will be pushed directly to the chosen branch.'
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      zisk_release_tag:
+        description: '[mandatory] matter-labs/zksync-os-zisk release tag to pin, e.g. 0.0.9.'
+        type: string
+        required: true
+      era_contracts_branch:
+        description: '[mandatory] Contracts branch to update, e.g. draft/v0.34.0.'
+        type: string
+        required: true
+      commit_changes:
+        description: '[mandatory] Whether to commit the contracts changes back to the repository. If set to false, changes will not be committed, but a patch file will be saved as an artifact.'
+        type: boolean
+        required: false
+        default: true
+      open_pr:
+        description: '[optional] Whether to open a PR for the committed changes. If not, and commit_changes is true, changes will be pushed directly to the chosen branch.'
+        type: boolean
+        required: false
+        default: true
+
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-zisk-vk-${{ github.event_name }}-${{ github.ref }}-${{ inputs.era_contracts_branch }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -ex {0}
+
+env:
+  # To avoid uv warning about cache
+  UV_LINK_MODE: copy
+  WORKSPACE: "${{ github.workspace }}/workspace"
+  VERBOSE: "true"
+
+jobs:
+
+  update-zisk-vk:
+    runs-on: matterlabs-ci-runner-high-performance
+    name: ZiSK VK update (${{ inputs.zisk_release_tag }})
+    steps:
+
+      - name: Checkout repo
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup runner
+        uses: ./.github/actions/runner-setup
+
+      - name: Checkout contracts
+        uses: ./.github/actions/checkout-deps
+        with:
+          github_token: ${{ inputs.commit_changes && secrets.RELEASE_TOKEN || github.token }}
+          era_contracts_version: ${{ inputs.era_contracts_branch }}
+
+      # Same step as in update-vk.yaml; a test keeps the two identical.
+      - name: Install the contracts' pinned upstream Foundry
+        shell: bash -e {0}
+        run: |
+          pin="${WORKSPACE}/era-contracts/.github/foundry-versions.env"
+          if [[ ! -f "$pin" ]]; then
+            echo "No upstream Foundry pin; recompute_hashes.sh uses foundry-zksync."
+            exit 0
+          fi
+          version="$(sed -n 's/^FOUNDRY_VERSION=//p' "$pin")"
+          if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: unexpected FOUNDRY_VERSION '${version}' in ${pin}" >&2
+            exit 1
+          fi
+          dir="${RUNNER_TEMP}/upstream-foundry-${version}"
+          mkdir -p "$dir"
+          curl -fsSL "https://github.com/foundry-rs/foundry/releases/download/${version}/foundry_${version}_linux_amd64.tar.gz" \
+            | tar zx -C "$dir"
+          "$dir/forge" --version
+          echo "UPSTREAM_FOUNDRY_DIR=${dir}" >> "$GITHUB_ENV"
+
+      - name: Rotate the ZiSK pins
+        timeout-minutes: 60
+        env:
+          # zksync-os-zisk and upstream ZiSK are public, so any token reads them;
+          # docs/src/scripts/update_zisk_vk.md explains the choice.
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          ZISK_RELEASE_TAG: ${{ inputs.zisk_release_tag }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          REPO_DIR=${WORKSPACE}/era-contracts \
+            uv run -m scripts.update_zisk_vk
+
+      - name: Save git patch
+        if: success()
+        working-directory: ${{ env.WORKSPACE }}/era-contracts
+        run: git diff > "${GITHUB_WORKSPACE}/era_contracts_zisk_vk.patch"
+
+      - name: Upload git patch
+        if: success()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
+        with:
+          name: era-contracts-zisk-patch-${{ inputs.zisk_release_tag }}
+          path: "era_contracts_zisk_vk.patch"
+
+      - name: Upload rotation summary
+        if: success()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
+        with:
+          name: zisk-rotation-${{ inputs.zisk_release_tag }}
+          path: |
+            ${{ env.WORKSPACE }}/zisk-rotation.json
+            ${{ env.WORKSPACE }}/zisk_pr_body.md
+          if-no-files-found: error
+
+      - name: Commit era-contracts changes
+        if: success() && inputs.commit_changes
+        working-directory: ${{ env.WORKSPACE }}/era-contracts
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TARGET_REPOSITORY: matter-labs/era-contracts
+          PUSH_SIGNED_COMMIT: ${{ github.workspace }}/.github/scripts/push-signed-commit.sh
+          CONTRACTS_BRANCH: ${{ inputs.era_contracts_branch }}
+          OPEN_PR: ${{ inputs.open_pr }}
+          ZISK_RELEASE_TAG: ${{ inputs.zisk_release_tag }}
+          PR_BODY_FILE: ${{ env.WORKSPACE }}/zisk_pr_body.md
+          COMMIT_TITLE: "chore(verifier): rotate ZiSK pins to zksync-os-zisk release ${{ inputs.zisk_release_tag }}"
+        # era-contracts requires signed commits, and a pushed `git commit` is unsigned.
+        # update_zisk_vk.py fails if the rotation touched files outside its own.
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "era-contracts already pins zksync-os-zisk ${ZISK_RELEASE_TAG}; nothing to commit."
+            exit 0
+          fi
+          # --no-renames lists a rename's old path too, so the script deletes it.
+          paths=()
+          while IFS= read -r -d '' path; do
+            paths+=("${path}")
+          done < <(git diff --cached --name-only --no-renames -z)
+          base="$(git rev-parse HEAD)"
+          if [[ "${OPEN_PR}" == "true" ]]; then
+            branch="update-zisk-vk-${ZISK_RELEASE_TAG}-$(date +%s)"
+            expected_old=""
+          else
+            branch="${CONTRACTS_BRANCH}"
+            expected_old="${base}"
+          fi
+          message="$(mktemp)"
+          echo "${COMMIT_TITLE}" > "${message}"
+          bash "${PUSH_SIGNED_COMMIT}" "${branch}" "${base}" "${message}" "${expected_old}" "${paths[@]}"
+          if [[ "${OPEN_PR}" == "true" ]]; then
+            gh pr create --repo "${TARGET_REPOSITORY}" --title "${COMMIT_TITLE}" \
+              --body-file "${PR_BODY_FILE}" \
+              --base "${CONTRACTS_BRANCH}" \
+              --head "${branch}"
+          fi
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f4 # v6.0.0
+        with:
+          name: era-contracts-zisk-update-logs
+          path: ${{ github.workspace }}/workspace/.logs/*
