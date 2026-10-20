@@ -109,6 +109,11 @@ The hash is extracted from the generated Plonk verifier contract and can be used
 
 If `commit_changes` and `open_pr` are set to `true`, a PR is opened automatically with the changes.
 
+era-contracts requires signed commits, so the workflow creates the commit through the GraphQL
+`createCommitOnBranch` mutation (`.github/scripts/push-signed-commit.sh`) instead of `git commit` and
+`git push`. GitHub signs those commits: the `RELEASE_TOKEN` owner is the author and GitHub the
+committer. The step fails if GitHub returns an unsigned commit.
+
 ```admonish title="Example PR"
 [era-contracts/pull/2018](https://github.com/matter-labs/era-contracts/pull/2018)
 ```

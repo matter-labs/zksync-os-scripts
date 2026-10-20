@@ -1,4 +1,6 @@
+import base64
 import io
+import json
 import logging
 import os
 import resource
@@ -319,6 +321,291 @@ class UpstreamFoundryStepTests(unittest.TestCase):
             github_env,
             f"UPSTREAM_FOUNDRY_DIR={runner_temp / 'upstream-foundry-v1.5.1'}\n",
         )
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PUSH_SIGNED_COMMIT = REPO_ROOT / ".github/scripts/push-signed-commit.sh"
+# Stands in for `gh`: logs each call (arguments joined by \x1f, one call per
+# line) and answers the API calls push-signed-commit.sh makes.
+STUB_GH = """#!/usr/bin/env bash
+printf '%s\\x1f' "$@" >> "${STUB_DIR}/gh.log"
+printf '\\n' >> "${STUB_DIR}/gh.log"
+case "$*" in
+  "api graphql --input "*) cp "$4" "${STUB_DIR}/request.json"; echo "${STUB_OID}" ;;
+  "api repos/"*"/git/matching-refs/heads/"*) echo "${STUB_CURRENT:-}" ;;
+  "api repos/"*"/commits/"*) echo "${STUB_VERIFIED}" ;;
+esac
+"""
+
+
+def isolated_git_env():
+    return {
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_AUTHOR_NAME": "test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }
+
+
+def write_stub_gh(tmp):
+    stub_bin = tmp / "bin"
+    stub_bin.mkdir()
+    (stub_bin / "gh").write_text(STUB_GH)
+    (stub_bin / "gh").chmod(0o755)
+    return f"{stub_bin}{os.pathsep}{os.environ['PATH']}"
+
+
+def gh_calls(stub_dir):
+    log = stub_dir / "gh.log"
+    if not log.exists():
+        return []
+    return [line.split("\x1f")[:-1] for line in log.read_text().splitlines()]
+
+
+class PushSignedCommitScriptTests(unittest.TestCase):
+    REPO = "matter-labs/era-contracts"
+    BASE = "b" * 40
+    OID = "c" * 40
+
+    def run_script(self, expected_old="", current="", verified="true"):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stub"
+            stub_dir.mkdir()
+            work = tmp / "work"
+            (work / "dir").mkdir(parents=True)
+            (work / "dir" / "a.txt").write_text("new contents\n")
+            (work / "b.bin").write_bytes(bytes(range(256)) * 3)
+            message = tmp / "message"
+            message.write_text("headline\n\nbody line\n")
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(PUSH_SIGNED_COMMIT),
+                    "target",
+                    self.BASE,
+                    str(message),
+                    expected_old,
+                    "dir/a.txt",
+                    "b.bin",
+                    "gone.txt",
+                ],
+                cwd=work,
+                env={
+                    "PATH": write_stub_gh(tmp),
+                    "GH_TOKEN": "token",
+                    "TARGET_REPOSITORY": self.REPO,
+                    "STUB_DIR": str(stub_dir),
+                    "STUB_OID": self.OID,
+                    "STUB_CURRENT": current,
+                    "STUB_VERIFIED": verified,
+                },
+                capture_output=True,
+                text=True,
+            )
+            request_path = stub_dir / "request.json"
+            request = (
+                json.loads(request_path.read_text()) if request_path.exists() else None
+            )
+            return result, gh_calls(stub_dir), request
+
+    @staticmethod
+    def ref_writes(calls):
+        return [call for call in calls if call[2:3] in (["POST"], ["PATCH"])]
+
+    def assert_temp_branch_deleted(self, calls, request):
+        temp = request["variables"]["input"]["branch"]["branchName"]
+        self.assertEqual(
+            calls[-1],
+            ["api", "--method", "DELETE", f"repos/{self.REPO}/git/refs/heads/{temp}"],
+        )
+
+    def test_creates_a_new_branch_at_a_signed_commit(self):
+        result, calls, request = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), self.OID)
+
+        commit = request["variables"]["input"]
+        temp = commit["branch"]["branchName"]
+        self.assertTrue(temp.startswith("automation/signed-commit-"))
+        self.assertEqual(commit["branch"]["repositoryNameWithOwner"], self.REPO)
+        self.assertEqual(commit["expectedHeadOid"], self.BASE)
+        self.assertEqual(
+            commit["message"], {"headline": "headline", "body": "body line"}
+        )
+        additions = {
+            entry["path"]: base64.b64decode(entry["contents"])
+            for entry in commit["fileChanges"]["additions"]
+        }
+        self.assertEqual(
+            additions,
+            {"dir/a.txt": b"new contents\n", "b.bin": bytes(range(256)) * 3},
+        )
+        self.assertEqual(commit["fileChanges"]["deletions"], [{"path": "gone.txt"}])
+
+        # The temp branch starts at BASE; the target is created at the new commit.
+        refs = f"repos/{self.REPO}/git/refs"
+        self.assertEqual(
+            self.ref_writes(calls),
+            [
+                ["api", "--method", "POST", refs, "-f", f"ref=refs/heads/{temp}"]
+                + ["-f", f"sha={self.BASE}"],
+                ["api", "--method", "POST", refs, "-f", "ref=refs/heads/target"]
+                + ["-f", f"sha={self.OID}"],
+            ],
+        )
+        self.assert_temp_branch_deleted(calls, request)
+
+    def test_moves_an_existing_branch_under_its_lease(self):
+        result, calls, request = self.run_script(
+            expected_old="a" * 40, current="a" * 40
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.ref_writes(calls)[-1],
+            ["api", "--method", "PATCH", f"repos/{self.REPO}/git/refs/heads/target"]
+            + ["-f", f"sha={self.OID}", "-F", "force=true"],
+        )
+        self.assert_temp_branch_deleted(calls, request)
+
+    def test_refuses_a_stale_lease(self):
+        result, calls, request = self.run_script(
+            expected_old="a" * 40, current="d" * 40
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("expected", result.stderr)
+        # Only the temp branch was written.
+        self.assertEqual(len(self.ref_writes(calls)), 1)
+        self.assert_temp_branch_deleted(calls, request)
+
+    def test_refuses_an_unsigned_commit(self):
+        result, calls, request = self.run_script(verified="false")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("did not sign", result.stderr)
+        self.assertEqual(len(self.ref_writes(calls)), 1)
+        self.assert_temp_branch_deleted(calls, request)
+
+
+class CommitStepTests(unittest.TestCase):
+    STEP = "Commit era-contracts changes"
+    TITLE = "chore: update verification keys for protocol v33.2"
+
+    @classmethod
+    def setUpClass(cls):
+        workflow = yaml.safe_load(
+            (REPO_ROOT / ".github/workflows/update-vk.yaml").read_text()
+        )
+        cls.step = next(
+            step
+            for step in workflow["jobs"]["check-vk"]["steps"]
+            if step.get("name") == cls.STEP
+        )
+
+    def run_step(self, open_pr, change):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            stub_dir = tmp / "stub"
+            stub_dir.mkdir()
+            # Records its arguments and the message file in place of the real script.
+            push = tmp / "push-signed-commit.sh"
+            push.write_text(
+                "#!/usr/bin/env bash\n"
+                'printf \'%s\\x1f\' "$@" > "${STUB_DIR}/push.args"\n'
+                'cp "$3" "${STUB_DIR}/push.message"\n'
+            )
+            repo = tmp / "era-contracts"
+            repo.mkdir()
+            git_env = {**os.environ, **isolated_git_env()}
+            for name in ("a.txt", "old.txt", "gone.txt"):
+                (repo / name).write_text(f"{name}\n")
+            for args in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "base"]):
+                subprocess.run(["git", *args], cwd=repo, env=git_env, check=True)
+            base = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                env=git_env,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            change(repo)
+            result = subprocess.run(
+                ["bash", "-e", "-c", self.step["run"]],
+                cwd=repo,
+                env={
+                    **isolated_git_env(),
+                    "PATH": write_stub_gh(tmp),
+                    "STUB_DIR": str(stub_dir),
+                    "GH_TOKEN": "token",
+                    "TARGET_REPOSITORY": "matter-labs/era-contracts",
+                    "PUSH_SIGNED_COMMIT": str(push),
+                    "CONTRACTS_BRANCH": "draft/v0.34.0",
+                    "OPEN_PR": open_pr,
+                    "PROTOCOL_VERSION": "v33.2",
+                    "COMMIT_TITLE": self.TITLE,
+                },
+                capture_output=True,
+                text=True,
+            )
+            args_path = stub_dir / "push.args"
+            push_args = (
+                args_path.read_text().split("\x1f")[:-1] if args_path.exists() else None
+            )
+            message_path = stub_dir / "push.message"
+            message = message_path.read_text() if message_path.exists() else None
+            return result, base, push_args, message, gh_calls(stub_dir)
+
+    @staticmethod
+    def change_files(repo):
+        (repo / "a.txt").write_text("changed\n")
+        (repo / "added.txt").write_text("added\n")
+        (repo / "old.txt").rename(repo / "new.txt")
+        (repo / "gone.txt").unlink()
+
+    def test_never_commits_or_pushes_with_git(self):
+        self.assertNotRegex(self.step["run"], r"git (commit|push)\b")
+
+    def test_skips_when_nothing_changed(self):
+        result, _, push_args, _, calls = self.run_step("true", lambda repo: None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIsNone(push_args)
+        self.assertEqual(calls, [])
+
+    def test_opens_a_pr_from_a_new_signed_branch(self):
+        result, base, push_args, message, calls = self.run_step(
+            "true", self.change_files
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        branch, parent, _, expected_old, *paths = push_args
+        self.assertRegex(branch, r"^update-vk-[0-9]+$")
+        self.assertEqual(parent, base)
+        self.assertEqual(expected_old, "")
+        # A rename lists both paths, so the old one is deleted.
+        self.assertEqual(
+            sorted(paths), ["a.txt", "added.txt", "gone.txt", "new.txt", "old.txt"]
+        )
+        self.assertEqual(message, f"{self.TITLE}\n")
+        self.assertEqual(
+            calls,
+            [
+                ["pr", "create", "--repo", "matter-labs/era-contracts"]
+                + ["--title", self.TITLE]
+                + ["--body", "Automated verification keys update for protocol v33.2"]
+                + ["--base", "draft/v0.34.0", "--head", branch]
+            ],
+        )
+
+    def test_pushes_onto_the_contracts_branch_without_a_pr(self):
+        result, base, push_args, _, calls = self.run_step("false", self.change_files)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        branch, parent, _, expected_old, *_ = push_args
+        self.assertEqual(branch, "draft/v0.34.0")
+        self.assertEqual(parent, base)
+        # Moving the branch requires it to still be at the commit the update ran on.
+        self.assertEqual(expected_old, base)
+        self.assertEqual(calls, [])
 
 
 class VkGenerationTests(unittest.TestCase):

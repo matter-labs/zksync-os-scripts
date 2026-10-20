@@ -329,26 +329,39 @@ jobs:
         working-directory: ${{ env.WORKSPACE }}/era-contracts
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TARGET_REPOSITORY: matter-labs/era-contracts
+          PUSH_SIGNED_COMMIT: ${{ github.workspace }}/.github/scripts/push-signed-commit.sh
+          CONTRACTS_BRANCH: ${{ steps.define-versions.outputs.era_contracts_version }}
+          OPEN_PR: ${{ inputs.open_pr }}
+          PROTOCOL_VERSION: ${{ inputs.protocol_version }}
           COMMIT_TITLE: "chore: update verification keys for protocol ${{ inputs.protocol_version }}"
+        # era-contracts requires signed commits, and a pushed `git commit` is unsigned.
         run: |
-          if [[ "${{ inputs.open_pr }}" == "true" ]]; then
-            BRANCH="update-vk-$(date +%s)"
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
           fi
-          if ! git diff --exit-code --quiet; then
-            git config user.name "zksync-os-bot"
-            git config user.email "zksync-os-bot@users.noreply.github.com"
-            if [ -n "${BRANCH}" ]; then
-              git checkout -b "${BRANCH}"
-            fi
-            git add .
-            git commit -m "${{ env.COMMIT_TITLE }}"
-            git push --set-upstream origin ${BRANCH:-${{ steps.define-versions.outputs.era_contracts_version }}}
-            if [[ "${{ inputs.open_pr }}" == "true" ]]; then
-              gh pr create --title "${{ env.COMMIT_TITLE }}" \
-                --body "Automated verification keys update for protocol ${{ inputs.protocol_version }}" \
-                --base "${{ steps.define-versions.outputs.era_contracts_version }}" \
-                --head "${BRANCH}"
-            fi
+          # --no-renames lists a rename's old path too, so the script deletes it.
+          paths=()
+          while IFS= read -r -d '' path; do
+            paths+=("${path}")
+          done < <(git diff --cached --name-only --no-renames -z)
+          base="$(git rev-parse HEAD)"
+          if [[ "${OPEN_PR}" == "true" ]]; then
+            branch="update-vk-$(date +%s)"
+            expected_old=""
+          else
+            branch="${CONTRACTS_BRANCH}"
+            expected_old="${base}"
+          fi
+          message="$(mktemp)"
+          echo "${COMMIT_TITLE}" > "${message}"
+          bash "${PUSH_SIGNED_COMMIT}" "${branch}" "${base}" "${message}" "${expected_old}" "${paths[@]}"
+          if [[ "${OPEN_PR}" == "true" ]]; then
+            gh pr create --repo "${TARGET_REPOSITORY}" --title "${COMMIT_TITLE}" \
+              --body "Automated verification keys update for protocol ${PROTOCOL_VERSION}" \
+              --base "${CONTRACTS_BRANCH}" \
+              --head "${branch}"
           fi
 
       - name: Upload logs
