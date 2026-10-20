@@ -207,6 +207,16 @@ SHA-256 hashes, and CRS selection. Verify these against the prover pins and
 bundled program before registering the generated hash. VK generation alone does
 not verify a real proof under the new key.
 
+### Contracts that pin upstream Foundry
+
+The ZKsync OS-only era-contracts line (`draft/v0.34.0` onwards) pins upstream
+Foundry in `.github/foundry-versions.env`, and its `recompute_hashes.sh` rejects
+the foundry-zksync build the runner puts on `PATH`. The workflow installs the
+pinned version off `PATH` and exports `UPSTREAM_FOUNDRY_DIR`; the script puts that
+directory first on `PATH` for `recompute_hashes.sh` only. Local callers set
+`UPSTREAM_FOUNDRY_DIR` to a directory holding that Foundry build, for example
+`~/.foundry/versions/v1.5.1`.
+
 ## Script dependencies
 
 The script relies on the following external resources:

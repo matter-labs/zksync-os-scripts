@@ -14,6 +14,7 @@ from scripts.update_vk import (
     WRAPPER_STACK_BYTES,
     download_os_binary,
     prepare_wrapper_stack,
+    recompute_hashes_env,
     script,
 )
 
@@ -210,6 +211,114 @@ class WorkflowVersionTests(unittest.TestCase):
         result, _ = self.select("v99.0")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Unsupported protocol", result.stdout)
+
+
+class RecomputeHashesEnvTests(unittest.TestCase):
+    def test_keeps_the_inherited_path_without_upstream_foundry(self):
+        with patch.dict(os.environ, {"PATH": "/usr/bin"}, clear=True):
+            self.assertIsNone(recompute_hashes_env())
+
+    def test_puts_upstream_foundry_first_on_path(self):
+        with patch.dict(
+            os.environ,
+            {"PATH": "/usr/bin", "UPSTREAM_FOUNDRY_DIR": "/opt/foundry"},
+            clear=True,
+        ):
+            self.assertEqual(
+                recompute_hashes_env(), {"PATH": f"/opt/foundry{os.pathsep}/usr/bin"}
+            )
+
+
+class UpstreamFoundryStepTests(unittest.TestCase):
+    STEP = "Install the contracts' pinned upstream Foundry"
+
+    @classmethod
+    def setUpClass(cls):
+        workflow = yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[1] / ".github/workflows/update-vk.yaml"
+            ).read_text()
+        )
+        cls.names = [step.get("name") for step in workflow["jobs"]["check-vk"]["steps"]]
+        cls.step = next(
+            step
+            for step in workflow["jobs"]["check-vk"]["steps"]
+            if step.get("name") == cls.STEP
+        )
+
+    def run_step(self, pin=None, curl=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            workspace = tmp / "workspace"
+            (workspace / "era-contracts" / ".github").mkdir(parents=True)
+            if pin is not None:
+                (
+                    workspace / "era-contracts" / ".github" / "foundry-versions.env"
+                ).write_text(pin)
+            github_env = tmp / "github_env"
+            github_env.touch()
+            path = os.environ["PATH"]
+            if curl is not None:
+                stub = tmp / "bin"
+                stub.mkdir()
+                (stub / "curl").write_text(curl)
+                (stub / "curl").chmod(0o755)
+                path = f"{stub}{os.pathsep}{path}"
+            runner_temp = tmp / "runner"
+            runner_temp.mkdir()
+            result = subprocess.run(
+                ["bash", "-e", "-c", self.step["run"]],
+                env={
+                    "PATH": path,
+                    "WORKSPACE": str(workspace),
+                    "RUNNER_TEMP": str(runner_temp),
+                    "GITHUB_ENV": str(github_env),
+                },
+                capture_output=True,
+                text=True,
+            )
+            return result, github_env.read_text(), runner_temp
+
+    def test_runs_after_the_contracts_checkout_and_before_the_update(self):
+        position = self.names.index(self.STEP)
+        self.assertLess(self.names.index("Checkout contracts"), position)
+        self.assertLess(position, self.names.index("Update vk"))
+
+    def test_contracts_without_a_pin_keep_foundry_zksync(self):
+        result, github_env, _ = self.run_step()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(github_env, "")
+
+    def test_rejects_a_malformed_pin(self):
+        result, github_env, _ = self.run_step(pin="FOUNDRY_VERSION=latest\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unexpected FOUNDRY_VERSION", result.stderr)
+        self.assertEqual(github_env, "")
+
+    def test_installs_the_pinned_version_off_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # A stand-in release tarball holding a forge that reports its version.
+            archive = Path(tmp) / "foundry.tar.gz"
+            forge = Path(tmp) / "forge"
+            forge.write_text("#!/bin/sh\necho forge Version: 1.5.1-v1.5.1\n")
+            forge.chmod(0o755)
+            subprocess.run(["tar", "czf", str(archive), "-C", tmp, "forge"], check=True)
+            curl = (
+                "#!/bin/sh\n"
+                'case "$*" in *foundry-rs/foundry/releases/download/v1.5.1/'
+                "foundry_v1.5.1_linux_amd64.tar.gz*) "
+                f"cat {archive};; *) exit 22;; esac\n"
+            )
+            result, github_env, runner_temp = self.run_step(
+                pin="# comment\nFOUNDRY_VERSION=v1.5.1\nFOUNDRY_COMMIT=b0a9dd9ce\n",
+                curl=curl,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("forge Version: 1.5.1-v1.5.1", result.stdout)
+        self.assertEqual(
+            github_env,
+            f"UPSTREAM_FOUNDRY_DIR={runner_temp / 'upstream-foundry-v1.5.1'}\n",
+        )
 
 
 class VkGenerationTests(unittest.TestCase):

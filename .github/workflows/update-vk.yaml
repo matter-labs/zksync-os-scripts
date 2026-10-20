@@ -221,6 +221,30 @@ jobs:
           github_token: ${{ inputs.commit_changes && secrets.RELEASE_TOKEN || github.token }}
           era_contracts_version: ${{ steps.define-versions.outputs.era_contracts_version }}
 
+      # The ZKsync OS-only era-contracts line pins upstream Foundry in
+      # .github/foundry-versions.env and its recompute_hashes.sh rejects the
+      # foundry-zksync build on PATH. Install the pinned build off PATH;
+      # update_vk.py uses it for recompute_hashes.sh only.
+      - name: Install the contracts' pinned upstream Foundry
+        shell: bash -e {0}
+        run: |
+          pin="${WORKSPACE}/era-contracts/.github/foundry-versions.env"
+          if [[ ! -f "$pin" ]]; then
+            echo "No upstream Foundry pin; recompute_hashes.sh uses foundry-zksync."
+            exit 0
+          fi
+          version="$(sed -n 's/^FOUNDRY_VERSION=//p' "$pin")"
+          if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: unexpected FOUNDRY_VERSION '${version}' in ${pin}" >&2
+            exit 1
+          fi
+          dir="${RUNNER_TEMP}/upstream-foundry-${version}"
+          mkdir -p "$dir"
+          curl -fsSL "https://github.com/foundry-rs/foundry/releases/download/${version}/foundry_${version}_linux_amd64.tar.gz" \
+            | tar zx -C "$dir"
+          "$dir/forge" --version
+          echo "UPSTREAM_FOUNDRY_DIR=${dir}" >> "$GITHUB_ENV"
+
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
