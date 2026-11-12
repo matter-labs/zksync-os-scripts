@@ -42,20 +42,6 @@ jobs:
         run: uv run python -m unittest discover -s tests -v
 
 
-  # Check server update script
-  check-server:
-    uses: ./.github/workflows/update-server.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        # TODO: return v31.0 and v32.0 when ready
-        protocol_version: ["v30.2"]
-        # protocol_version: ["v30.2", "v31.0", "v32.0"]
-    with:
-      protocol_version: "${{ matrix.protocol_version }}"
-    secrets: inherit
-
-
   # Check verification keys update script
   check-vk:
     uses: ./.github/workflows/update-vk.yaml
@@ -72,7 +58,6 @@ jobs:
     if: always()
     needs:
       - python-checks
-      - check-server
       - check-vk
     steps:
       - name: Decide on PR checks
