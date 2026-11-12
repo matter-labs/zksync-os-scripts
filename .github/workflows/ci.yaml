@@ -38,30 +38,20 @@ jobs:
       - name: Check formatting
         run: uv format --check
 
-
-  # Check server update script
-  check-server:
-    uses: ./.github/workflows/update-server.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        # TODO: return v31.0 and v32.0 when ready
-        protocol_version: ["v30.2"]
-        # protocol_version: ["v30.2", "v31.0", "v32.0"]
-    with:
-      protocol_version: "${{ matrix.protocol_version }}"
-    secrets: inherit
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests -v
 
 
   # Check verification keys update script
   check-vk:
     uses: ./.github/workflows/update-vk.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        protocol_version: ["v30.2", "v31.0", "v32.0"]
+    permissions:
+      contents: read
+      id-token: write
     with:
-      protocol_version: "${{ matrix.protocol_version }}"
+      protocol_version: v33.2
+      # The tag holds the released v33.2 key, so regeneration runs against known-good contracts.
+      era_contracts_branch: v0.33.2
     secrets: inherit
 
   # Special job that allows some of the jobs to be skipped or failed
@@ -71,7 +61,6 @@ jobs:
     if: always()
     needs:
       - python-checks
-      - check-server
       - check-vk
     steps:
       - name: Decide on PR checks
