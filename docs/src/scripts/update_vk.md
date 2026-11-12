@@ -61,7 +61,7 @@ which should be specified via corresponding path environment variables:
 
 | Repository    | Env Variable        | Protocol version → Branch Mapping |
 | :------------ | :------------------ | :----------------------- |
-| [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-zksync-os`<br />**v32.0** → `draft-v32` |
+| [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-zksync-os`<br />**v32.0** → `c760867a` (final `draft-v32` head) |
 | [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision; **v33.2** → pinned PR #49 revision |
 
 Please, additionally check [protocol compatibility](../protocol-compatibility.md) to ensure the correct versions are used.
@@ -152,10 +152,8 @@ For v33, dependency checkouts, downloads, and Cargo use the configured
 protocol, private Airbender, and private OS repositories. Public `era-contracts`
 is checked out separately using the workflow token (or `RELEASE_TOKEN` when
 contracts writes are enabled), without requesting access through the app. The app must be
-installed on these repositories. Older protocols use `ZKSYNC_ADMIN_BOT_ORG_REPO_READ`,
-falling back to `RELEASE_TOKEN`.
-The token must have read access to the private OS release and the wrapper's private Git dependencies.
-Dependency checkouts use the same read-token fallback. Contracts commits use `RELEASE_TOKEN`,
+installed on these repositories. Older protocols check out dependencies with `RELEASE_TOKEN`
+and download the public OS release by URL. Contracts commits use `RELEASE_TOKEN`,
 which needs write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
 and Cargo Git dependencies.
 

@@ -123,7 +123,8 @@ env:
   # Versions mapping for v32
   ZKSYNC_FOUNDRY_VERSION_V32: "v0.1.5"
   ZKOS_WRAPPER_VERSION_V32: "main"
-  ERA_CONTRACTS_VERSION_V32: "draft-v32"
+  # draft-v32 was deleted; pin its final head, which draft-v33-era-only still contains.
+  ERA_CONTRACTS_VERSION_V32: "c760867a5ee2efaceb2152365d1a71068cbf0ea6"
   ZKSYNC_OS_TAG_V32: "v0.5.0"
   # v33 shares the v0.5.5 OS release; contracts revisions remain explicit.
   ZKSYNC_FOUNDRY_VERSION_V33: "v0.1.5"
@@ -184,7 +185,7 @@ jobs:
           echo "zkos_wrapper_version=${WRAPPER_VERSION:-${!wrapper_var}}" >> "$GITHUB_OUTPUT"
           echo "era_contracts_version=${CONTRACTS_BRANCH:-${!contracts_var}}" >> "$GITHUB_OUTPUT"
           echo "zksync_os_tag=${OS_TAG:-${!os_tag_var}}" >> "$GITHUB_OUTPUT"
-          echo "zksync_os_repository=${OS_REPOSITORY:-matter-labs/zksync-os}" >> "$GITHUB_OUTPUT"
+          echo "zksync_os_repository=$OS_REPOSITORY" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_repository=${WRAPPER_REPOSITORY:-matter-labs/zkos-wrapper}" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_recursion_mode=$WRAPPER_RECURSION_MODE" >> "$GITHUB_OUTPUT"
           echo "zkos_wrapper_layout=${WRAPPER_LAYOUT:-legacy}" >> "$GITHUB_OUTPUT"
@@ -224,14 +225,14 @@ jobs:
       - name: Checkout dependencies
         uses: ./.github/actions/checkout-deps
         with:
-          github_token: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
+          github_token: ${{ steps.private-token.outputs.token || secrets.RELEASE_TOKEN }}
           zkos_wrapper_version: ${{ steps.define-versions.outputs.zkos_wrapper_version }}
           zkos_wrapper_repository: ${{ steps.define-versions.outputs.zkos_wrapper_repository }}
 
       - name: Configure private dependency authentication
         shell: bash -e {0}
         env:
-          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.RELEASE_TOKEN }}
         run: |
           if [[ -n "$GH_TOKEN" ]]; then
             gh auth setup-git --hostname github.com
@@ -263,7 +264,7 @@ jobs:
       - name: Update vk
         timeout-minutes: 60
         env:
-          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.ZKSYNC_ADMIN_BOT_ORG_REPO_READ || secrets.RELEASE_TOKEN || github.token }}
+          GH_TOKEN: ${{ steps.private-token.outputs.token || secrets.RELEASE_TOKEN || github.token }}
           CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
           ZKSYNC_OS_TAG: ${{ steps.define-versions.outputs.zksync_os_tag }}
           ZKSYNC_OS_REPOSITORY: ${{ steps.define-versions.outputs.zksync_os_repository }}

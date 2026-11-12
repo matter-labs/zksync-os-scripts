@@ -127,7 +127,7 @@ class WorkflowVersionTests(unittest.TestCase):
         for protocol, tag, contracts in [
             ("v30.2", "v0.2.5", "zksync-os-stable"),
             ("v31.0", "v0.3.0", "draft-v31"),
-            ("v32.0", "v0.5.0", "draft-v32"),
+            ("v32.0", "v0.5.0", "c760867a5ee2efaceb2152365d1a71068cbf0ea6"),
         ]:
             with self.subTest(protocol=protocol):
                 result, values = self.select(protocol)
@@ -135,9 +135,7 @@ class WorkflowVersionTests(unittest.TestCase):
                 self.assertEqual(values["zksync_os_tag"], tag)
                 self.assertEqual(values["era_contracts_version"], contracts)
                 self.assertEqual(values["zkos_wrapper_version"], "main")
-                self.assertEqual(
-                    values["zksync_os_repository"], "matter-labs/zksync-os"
-                )
+                self.assertEqual(values["zksync_os_repository"], "")
                 self.assertEqual(
                     values["zkos_wrapper_repository"], "matter-labs/zkos-wrapper"
                 )
