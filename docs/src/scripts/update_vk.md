@@ -62,7 +62,7 @@ which should be specified via corresponding path environment variables:
 | Repository    | Env Variable        | Protocol version → Branch Mapping |
 | :------------ | :------------------ | :----------------------- |
 | [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-zksync-os`<br />**v32.0** → `draft-v32` |
-| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision; **v33.2** → pinned PR #49 revision |
+| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision; **v33.2** → pinned PR #49 revision; **v34.0** → the prover's `7ffb060a` |
 
 Please, additionally check [protocol compatibility](../protocol-compatibility.md) to ensure the correct versions are used.
 ```
@@ -85,10 +85,10 @@ that can be triggered manually via GitHub Actions UI interface.
 | `protocol_version`     | ✅       | Protocol version to update verification keys for.              |
 | `zksync_os_tag`        | ❌       | OS release tag; defaults to the protocol mapping. |
 | `zksync_os_repository` | ❌       | OS release repository (`owner/name`); defaults to the protocol mapping. |
-| `era_contracts_branch` | v33.1/v33.2 | Contracts branch; otherwise defaults to the protocol mapping. |
+| `era_contracts_branch` | v33.1/v33.2/v34.0 | Contracts branch; otherwise defaults to the protocol mapping. |
 | `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; v33.2 defaults to `f28fbaac166383ef19cabb96ea4c7201a8096cc3`, older versions to `main`. |
 | `zkos_wrapper_repository` | ❌   | Wrapper repository (`owner/name`); defaults to the protocol mapping. |
-| `zkos_wrapper_layout` | ❌ | `monorepo` for the v33.1/v33.2 wrappers, or `legacy` for the standalone wrapper. |
+| `zkos_wrapper_layout` | ❌ | `monorepo` for the v33.1/v33.2/v34.0 wrappers, or `legacy` for the standalone wrapper. |
 | `zkos_wrapper_recursion_mode` | ❌ | Recursion mode for legacy wrappers; leave empty for the monorepo wrapper. |
 | `commit_changes`       | ❌       | Whether to commit the updated keys. Defaults to `true`.        |
 | `open_pr`              | ❌       | Whether to open a PR. Defaults to `true`.                      |
@@ -206,6 +206,21 @@ by the CLI and `generation-manifest.json` with resolved source commits, OS asset
 SHA-256 hashes, and CRS selection. Verify these against the prover pins and
 bundled program before registering the generated hash. VK generation alone does
 not verify a real proof under the new key.
+
+### Protocol v34.0
+
+v34.0 runs the `v0.6.0` OS release (`matter-labs/zksync-os-private`) on the prover's
+v33.2 proving stack, so it defaults to the same wrapper revision the prover pins,
+`7ffb060ac3c4adca46688281e18cde56bd927258`, and the 2^24 setup. As for v33.x, the
+contracts revision is explicit:
+
+```bash
+gh workflow run update-vk.yaml --repo matter-labs/zksync-os-scripts \
+  --ref <branch> \
+  -f protocol_version=v34.0 \
+  -f era_contracts_branch=draft/v0.34.0 \
+  -f commit_changes=false -f open_pr=false
+```
 
 ### Contracts that pin upstream Foundry
 

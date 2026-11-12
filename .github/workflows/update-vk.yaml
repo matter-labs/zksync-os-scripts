@@ -16,11 +16,11 @@ on:
         type: string
         required: false
       era_contracts_branch:
-        description: 'Contracts branch to update. Required for v33.1/v33.2; otherwise derived from protocol version.'
+        description: 'Contracts branch to update. Required for v33.1/v33.2/v34.0; otherwise derived from protocol version.'
         type: string
         required: false
       zkos_wrapper_version:
-        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision.'
+        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision, v34.0 to the wrapper the prover pins.'
         type: string
         required: false
       zkos_wrapper_repository:
@@ -28,7 +28,7 @@ on:
         type: string
         required: false
       zkos_wrapper_layout:
-        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2 default to monorepo.'
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2/v34.0 default to monorepo.'
         type: string
         required: false
       zkos_wrapper_recursion_mode:
@@ -58,6 +58,7 @@ on:
           - 'v32.0'
           - 'v33.1'
           - 'v33.2'
+          - 'v34.0'
       zksync_os_tag:
         description: '[optional] OS release tag. Defaults to the selected protocol mapping.'
         type: string
@@ -67,11 +68,11 @@ on:
         type: string
         required: false
       era_contracts_branch:
-        description: 'Contracts branch to update. Required for v33.1/v33.2; otherwise derived from protocol version.'
+        description: 'Contracts branch to update. Required for v33.1/v33.2/v34.0; otherwise derived from protocol version.'
         type: string
         required: false
       zkos_wrapper_version:
-        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision.'
+        description: 'Wrapper revision matching the prover. Required for v33.1; v33.2 defaults to the pinned PR #49 revision, v34.0 to the wrapper the prover pins.'
         type: string
         required: false
       zkos_wrapper_repository:
@@ -79,7 +80,7 @@ on:
         type: string
         required: false
       zkos_wrapper_layout:
-        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2 default to monorepo.'
+        description: '[optional] Wrapper layout: legacy or monorepo. v33.1/v33.2/v34.0 default to monorepo.'
         type: string
         required: false
       zkos_wrapper_recursion_mode:
@@ -129,6 +130,10 @@ env:
   ZKSYNC_FOUNDRY_VERSION_V33: "v0.1.5"
   ZKSYNC_OS_TAG_V33: "v0.5.5"
   ZKOS_WRAPPER_VERSION_V33_2: "f28fbaac166383ef19cabb96ea4c7201a8096cc3"
+  # v34 runs the v0.6.0 OS release on the prover's v33.2 stack; contracts revisions remain explicit.
+  ZKSYNC_FOUNDRY_VERSION_V34: "v0.1.5"
+  ZKSYNC_OS_TAG_V34: "v0.6.0"
+  ZKOS_WRAPPER_VERSION_V34: "7ffb060ac3c4adca46688281e18cde56bd927258"
   # To avoid uv warning about cache
   UV_LINK_MODE: copy
   WORKSPACE: "${{ github.workspace }}/workspace"
@@ -169,13 +174,17 @@ jobs:
               WRAPPER_VERSION="${WRAPPER_VERSION:-$ZKOS_WRAPPER_VERSION_V33_2}"
               series=V33
               ;;
+            v34.0)
+              : "${CONTRACTS_BRANCH:?v34.0 requires an explicit contracts branch}"
+              series=V34
+              ;;
             *) echo "Unsupported protocol version: $PROTOCOL_VERSION"; exit 1 ;;
           esac
           foundry_var="ZKSYNC_FOUNDRY_VERSION_${series}"
           wrapper_var="ZKOS_WRAPPER_VERSION_${series}"
           contracts_var="ERA_CONTRACTS_VERSION_${series}"
           os_tag_var="ZKSYNC_OS_TAG_${series}"
-          if [[ "$series" == V33 ]]; then
+          if [[ "$series" == V33 || "$series" == V34 ]]; then
             OS_REPOSITORY="${OS_REPOSITORY:-matter-labs/zksync-os-private}"
             WRAPPER_REPOSITORY="${WRAPPER_REPOSITORY:-matter-labs/zksync-protocol-private}"
             WRAPPER_LAYOUT="${WRAPPER_LAYOUT:-monorepo}"
@@ -201,7 +210,7 @@ jobs:
       # The existing org read token cannot fetch the private protocol repository.
       # Use the repository's configured bot app with read-only, explicit repo scope.
       - name: Generate private dependency token
-        if: startsWith(inputs.protocol_version, 'v33.')
+        if: startsWith(inputs.protocol_version, 'v33.') || startsWith(inputs.protocol_version, 'v34.')
         id: private-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:

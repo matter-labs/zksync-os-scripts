@@ -191,6 +191,25 @@ class WorkflowVersionTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("contracts branch", result.stderr)
 
+    def test_v34_0_uses_v0_6_0_on_the_v33_2_stack(self):
+        result, values = self.select("v34.0", CONTRACTS_BRANCH="contracts-v34")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(values["zksync_os_tag"], "v0.6.0")
+        self.assertEqual(
+            values["zksync_os_repository"], "matter-labs/zksync-os-private"
+        )
+        self.assertEqual(
+            values["zkos_wrapper_repository"], "matter-labs/zksync-protocol-private"
+        )
+        self.assertEqual(
+            values["zkos_wrapper_version"], "7ffb060ac3c4adca46688281e18cde56bd927258"
+        )
+        self.assertEqual(values["zkos_wrapper_layout"], "monorepo")
+        self.assertEqual(values["zkos_wrapper_crs_power"], "24")
+        result, _ = self.select("v34.0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("contracts branch", result.stderr)
+
     def test_explicit_overrides(self):
         result, values = self.select(
             "v33.1",
