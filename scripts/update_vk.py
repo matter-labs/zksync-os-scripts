@@ -14,12 +14,29 @@ import lib.config as config
 
 WRAPPER_STACK_BYTES = 256 * 1024 * 1024
 
+# Directory of an upstream Foundry build for era-contracts lines that pin one;
+# update-vk.yaml sets it from the contracts' .github/foundry-versions.env.
+UPSTREAM_FOUNDRY_DIR_ENV = "UPSTREAM_FOUNDRY_DIR"
+
 
 def prepare_wrapper_stack() -> None:
     # RUST_MIN_STACK only affects spawned threads; VK synthesis also recurses on main.
     soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
     if soft != resource.RLIM_INFINITY and soft < WRAPPER_STACK_BYTES:
         resource.setrlimit(resource.RLIMIT_STACK, (WRAPPER_STACK_BYTES, hard))
+
+
+def recompute_hashes_env() -> dict[str, str] | None:
+    """Environment for era-contracts' `recompute_hashes.sh`.
+
+    Puts the upstream Foundry build named by `UPSTREAM_FOUNDRY_DIR` first on PATH, for
+    contracts that pin upstream Foundry. Without it the command keeps the inherited
+    PATH, whose forge is the foundry-zksync build older contracts lines expect.
+    """
+    foundry_dir = os.environ.get(UPSTREAM_FOUNDRY_DIR_ENV)
+    if not foundry_dir:
+        return None
+    return {"PATH": os.pathsep.join([foundry_dir, os.environ.get("PATH", "")])}
 
 
 def download_os_binary(
@@ -250,7 +267,10 @@ def script(ctx: ScriptCtx) -> None:
     # Update test hashes
     # ------------------------------------------------------------------ #
     with ctx.section("Update test hashes", expected=120):
-        ctx.sh(f"bash -c {ctx.repo_dir}/recompute_hashes.sh")
+        ctx.sh(
+            f"bash -c {ctx.repo_dir}/recompute_hashes.sh",
+            env=recompute_hashes_env(),
+        )
 
 
 if __name__ == "__main__":
