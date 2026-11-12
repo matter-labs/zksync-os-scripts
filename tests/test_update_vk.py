@@ -1,4 +1,3 @@
-import io
 import logging
 import os
 import resource
@@ -54,12 +53,7 @@ class DownloadBinaryTests(unittest.TestCase):
             Path(command[command.index("--output") + 1]).write_bytes(b"v0.5.5")
 
         self.ctx.sh.side_effect = download
-        result = download_os_binary(
-            self.ctx,
-            "v0.5.5",
-            "https://github.com/matter-labs/zksync-os",
-            "matter-labs/zksync-os-private",
-        )
+        result = download_os_binary(self.ctx, "v0.5.5", "matter-labs/zksync-os-private")
         self.assertEqual(result.read_bytes(), b"v0.5.5")
         self.assertEqual(list(self.workspace.iterdir()), [self.binary])
 
@@ -70,27 +64,9 @@ class DownloadBinaryTests(unittest.TestCase):
 
         self.ctx.sh.side_effect = fail
         with self.assertRaises(subprocess.CalledProcessError):
-            download_os_binary(self.ctx, "v0.5.5", "", "matter-labs/zksync-os-private")
+            download_os_binary(self.ctx, "v0.5.5", "matter-labs/zksync-os-private")
         self.assertEqual(self.binary.read_bytes(), b"old release")
         self.assertEqual(list(self.workspace.iterdir()), [self.binary])
-
-    @patch("lib.utils.urllib.request.urlopen")
-    def test_legacy_url_download_replaces_cached_binary(self, urlopen):
-        response = io.BytesIO(b"new public release")
-        response.status = 200
-        urlopen.return_value = response
-        download_os_binary(self.ctx, "v0.5.0", "https://example.test/os/", None)
-        self.assertEqual(self.binary.read_bytes(), b"new public release")
-        urlopen.assert_called_once_with(
-            "https://example.test/os/releases/download/v0.5.0/multiblock_batch.bin"
-        )
-        self.ctx.sh.assert_not_called()
-
-    @patch("lib.utils.urllib.request.urlopen", side_effect=OSError("download failed"))
-    def test_failed_public_download_stops_before_generation(self, _urlopen):
-        with self.assertRaises(OSError):
-            download_os_binary(self.ctx, "v0.5.0", "https://example.test/os", None)
-        self.assertEqual(self.binary.read_bytes(), b"old release")
 
 
 class WorkflowVersionTests(unittest.TestCase):
@@ -123,24 +99,6 @@ class WorkflowVersionTests(unittest.TestCase):
             )
             return result, values
 
-    def test_existing_protocol_defaults(self):
-        for protocol, tag, contracts in [
-            ("v30.2", "v0.2.5", "zksync-os-stable"),
-            ("v31.0", "v0.3.0", "draft-v31"),
-            ("v32.0", "v0.5.0", "c760867a5ee2efaceb2152365d1a71068cbf0ea6"),
-        ]:
-            with self.subTest(protocol=protocol):
-                result, values = self.select(protocol)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(values["zksync_os_tag"], tag)
-                self.assertEqual(values["era_contracts_version"], contracts)
-                self.assertEqual(values["zkos_wrapper_version"], "main")
-                self.assertEqual(values["zksync_os_repository"], "")
-                self.assertEqual(
-                    values["zkos_wrapper_repository"], "matter-labs/zkos-wrapper"
-                )
-                self.assertEqual(values["zkos_wrapper_recursion_mode"], "")
-
     def test_v33_1_defaults(self):
         result, values = self.select(
             "v33.1",
@@ -157,7 +115,7 @@ class WorkflowVersionTests(unittest.TestCase):
         )
         self.assertEqual(values["zkos_wrapper_version"], "prover-wrapper-sha")
         self.assertEqual(values["era_contracts_version"], "contracts-v33.1")
-        self.assertEqual(values["zkos_wrapper_layout"], "monorepo")
+        self.assertEqual(values["zkos_wrapper_crs_power"], "25")
 
     def test_v33_1_requires_wrapper_and_contracts(self):
         for overrides, missing in [
@@ -182,7 +140,6 @@ class WorkflowVersionTests(unittest.TestCase):
         self.assertEqual(
             values["zkos_wrapper_version"], "f28fbaac166383ef19cabb96ea4c7201a8096cc3"
         )
-        self.assertEqual(values["zkos_wrapper_layout"], "monorepo")
         self.assertEqual(values["zkos_wrapper_crs_power"], "24")
         result, _ = self.select("v33.2")
         self.assertNotEqual(result.returncode, 0)
@@ -196,13 +153,11 @@ class WorkflowVersionTests(unittest.TestCase):
             OS_TAG="different-tag",
             OS_REPOSITORY="owner/os",
             WRAPPER_REPOSITORY="owner/wrapper",
-            WRAPPER_RECURSION_MODE="other-mode",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(values["zksync_os_tag"], "different-tag")
         self.assertEqual(values["zksync_os_repository"], "owner/os")
         self.assertEqual(values["zkos_wrapper_repository"], "owner/wrapper")
-        self.assertEqual(values["zkos_wrapper_recursion_mode"], "other-mode")
 
     def test_unsupported_protocol(self):
         result, _ = self.select("v99.0")
@@ -215,14 +170,9 @@ class VkGenerationTests(unittest.TestCase):
     @patch("scripts.update_vk.utils.download")
     @patch("scripts.update_vk.download_os_binary")
     def test_generation_and_hash_artifacts(self, download_binary, _download, _require):
-        for layout, mode, crs_power in [
-            ("legacy", "", "24"),
-            ("legacy", "use-reduced-log23-machine", "24"),
-            ("monorepo", "", "25"),
-            ("monorepo", "", "24"),
-        ]:
+        for crs_power in ["25", "24"]:
             with (
-                self.subTest(layout=layout, mode=mode),
+                self.subTest(crs_power=crs_power),
                 tempfile.TemporaryDirectory(prefix="vk test ") as tmp,
             ):
                 workspace = Path(tmp)
@@ -235,16 +185,12 @@ class VkGenerationTests(unittest.TestCase):
                     contracts / "l1-contracts/contracts/state-transition/verifiers"
                 )
                 verifiers.mkdir(parents=True)
-                names = ["ZKsyncOSVerifierPlonk"]
-                if layout == "legacy":
-                    names.append("ZKsyncOSVerifierFflonk")
-                for name in names:
-                    (verifiers / f"{name}.sol").write_text("old verifier")
-                    (data / f"{name}.sol").write_text(
-                        f"/// @dev Contract was generated from a verification key with a hash of {vk_hash}\n"
-                    )
+                (verifiers / "ZKsyncOSVerifierPlonk.sol").write_text("old verifier")
+                (data / "ZKsyncOSVerifierPlonk.sol").write_text(
+                    f"/// @dev Contract was generated from a verification key with a hash of {vk_hash}\n"
+                )
                 download_binary.side_effect = (
-                    lambda ctx, tag, url, repository, asset="multiblock_batch.bin": (
+                    lambda ctx, tag, repository, asset="multiblock_batch.bin": (
                         workspace / asset
                     )
                 )
@@ -252,11 +198,6 @@ class VkGenerationTests(unittest.TestCase):
 
                 def run(command, **kwargs):
                     commands.append(command)
-                    if isinstance(command, list) and "generate-snark-vk" in command:
-                        (workspace / "snark_vk_expected.json").write_text(
-                            '{"generated":true}'
-                        )
-
                     if isinstance(command, list) and "generate-vk" in command:
                         self.assertEqual(kwargs["cwd"], wrapper / "zkos-wrapper")
                         (workspace / "snark_vk.json").write_text('{"generated":true}')
@@ -273,58 +214,40 @@ class VkGenerationTests(unittest.TestCase):
                         "ZKOS_WRAPPER_PATH": str(wrapper),
                         "ZKSYNC_OS_TAG": "v0.5.5",
                         "ZKSYNC_OS_REPOSITORY": "matter-labs/zksync-os-private",
-                        "ZKOS_WRAPPER_RECURSION_MODE": mode,
-                        "ZKOS_WRAPPER_LAYOUT": layout,
                         "ZKOS_WRAPPER_CRS_POWER": crs_power,
                     },
                     clear=True,
                 ):
                     script(ctx)
                 command = commands[0]
-                if layout == "monorepo":
-                    args = command[command.index("--") + 1 :]
-                    self.assertEqual(
-                        args[args.index("--bin") + 1],
-                        str(workspace / "multiblock_batch.bin"),
-                    )
-                    self.assertEqual(
-                        args[args.index("--text") + 1],
-                        str(workspace / "multiblock_batch.text"),
-                    )
-                    self.assertEqual(
-                        args[args.index("--trusted-setup") + 1],
-                        str(
-                            workspace
-                            / ("setup_2_25.key" if crs_power == "25" else "setup.key")
-                        ),
-                    )
-                    self.assertIn("--check-aux-params", args)
-                    self.assertIn("--no-default-features", command)
-                    self.assertEqual(
-                        command[command.index("--features") + 1], "security_100"
-                    )
-                else:
-                    self.assertEqual(
-                        command[command.index("--input-binary") + 1],
-                        str(workspace / "multiblock_batch.bin"),
-                    )
-                self.assertEqual("--recursion-mode" in command, bool(mode))
-                if mode:
-                    self.assertEqual(
-                        command[command.index("--recursion-mode") + 1], mode
-                    )
+                args = command[command.index("--") + 1 :]
+                self.assertEqual(
+                    args[args.index("--bin") + 1],
+                    str(workspace / "multiblock_batch.bin"),
+                )
+                self.assertEqual(
+                    args[args.index("--text") + 1],
+                    str(workspace / "multiblock_batch.text"),
+                )
+                self.assertEqual(
+                    args[args.index("--trusted-setup") + 1],
+                    str(
+                        workspace
+                        / ("setup_2_25.key" if crs_power == "25" else "setup.key")
+                    ),
+                )
+                self.assertIn("--check-aux-params", args)
+                self.assertIn("--no-default-features", command)
+                self.assertEqual(
+                    command[command.index("--features") + 1], "security_100"
+                )
                 self.assertEqual(
                     (workspace / "vk_hash.txt").read_text(), vk_hash + "\n"
                 )
-                for name in names:
-                    self.assertEqual(
-                        (verifiers / f"{name}.sol").read_text(),
-                        (data / f"{name}.sol").read_text(),
-                    )
-                if layout == "monorepo":
-                    self.assertFalse(
-                        (verifiers / "ZKsyncOSVerifierFflonk.sol").exists()
-                    )
+                self.assertEqual(
+                    (verifiers / "ZKsyncOSVerifierPlonk.sol").read_text(),
+                    (data / "ZKsyncOSVerifierPlonk.sol").read_text(),
+                )
                 self.assertEqual(
                     (data / "ZKsyncOS_plonk_scheduler_key.json").read_text(),
                     '{"generated":true}',

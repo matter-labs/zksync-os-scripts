@@ -44,15 +44,16 @@ these operations after the script successfully completes.
 ~~~admonish example title="Example usage"
 ```bash
 REPO_DIR="/path/to/era-contracts" \
-ZKOS_WRAPPER_PATH="/path/to/zkos-wrapper" \
-ZKSYNC_OS_TAG=latest \
+ZKOS_WRAPPER_PATH="/path/to/zksync-protocol-private" \
+ZKSYNC_OS_REPOSITORY=matter-labs/zksync-os-private \
+ZKSYNC_OS_TAG=v0.5.5 \
     uv run -m scripts.update_vk
 ```
 ~~~
 
 To run the script, you will need:
 - [General prerequisites including uv, Rust and NodeJS](../prerequisites.md)
-- Specific release tag of ZKsync OS from [`zksync-os` releases](https://github.com/matter-labs/zksync-os/releases) specified through `ZKSYNC_OS_TAG` env variable
+- Specific release tag of ZKsync OS from `matter-labs/zksync-os-private` releases specified through `ZKSYNC_OS_TAG` env variable
 
 ```admonish warning title="Protocol version and branches"
 
@@ -61,8 +62,8 @@ which should be specified via corresponding path environment variables:
 
 | Repository    | Env Variable        | Protocol version → Branch Mapping |
 | :------------ | :------------------ | :----------------------- |
-| [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | **v30.2** → `zksync-os-stable`<br />**v31.0** → `draft-v31-zksync-os`<br />**v32.0** → `c760867a` (final `draft-v32` head) |
-| [zkos-wrapper](https://github.com/matter-labs/zkos-wrapper)  | `ZKOS_WRAPPER_PATH` | **v30.2–v32.0** → `main` (latest); **v33.1** → explicit revision; **v33.2** → pinned PR #49 revision |
+| [era-contracts](https://github.com/matter-labs/era-contracts) | `REPO_DIR`          | Explicit branch or revision (e.g. `v0.33.2`) |
+| `matter-labs/zksync-protocol-private` | `ZKOS_WRAPPER_PATH` | **v33.1** → explicit revision; **v33.2** → pinned PR #49 revision |
 
 Please, additionally check [protocol compatibility](../protocol-compatibility.md) to ensure the correct versions are used.
 ```
@@ -85,11 +86,9 @@ that can be triggered manually via GitHub Actions UI interface.
 | `protocol_version`     | ✅       | Protocol version to update verification keys for.              |
 | `zksync_os_tag`        | ❌       | OS release tag; defaults to the protocol mapping. |
 | `zksync_os_repository` | ❌       | OS release repository (`owner/name`); defaults to the protocol mapping. |
-| `era_contracts_branch` | v33.1/v33.2 | Contracts branch; otherwise defaults to the protocol mapping. |
-| `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; v33.2 defaults to `f28fbaac166383ef19cabb96ea4c7201a8096cc3`, older versions to `main`. |
+| `era_contracts_branch` | ✅       | Contracts branch or revision. |
+| `zkos_wrapper_version` | v33.1 only | Wrapper revision matching the prover; v33.2 defaults to `f28fbaac166383ef19cabb96ea4c7201a8096cc3`. |
 | `zkos_wrapper_repository` | ❌   | Wrapper repository (`owner/name`); defaults to the protocol mapping. |
-| `zkos_wrapper_layout` | ❌ | `monorepo` for the v33.1/v33.2 wrappers, or `legacy` for the standalone wrapper. |
-| `zkos_wrapper_recursion_mode` | ❌ | Recursion mode for legacy wrappers; leave empty for the monorepo wrapper. |
 | `commit_changes`       | ❌       | Whether to commit the updated keys. Defaults to `true`.        |
 | `open_pr`              | ❌       | Whether to open a PR. Defaults to `true`.                      |
 
@@ -128,7 +127,6 @@ Select `protocol_version=v33.1`. The workflow defaults to:
 | `zksync_os_repository` | `matter-labs/zksync-os-private` |
 | `zksync_os_tag` | `v0.5.5` |
 | `zkos_wrapper_repository` | `matter-labs/zksync-protocol-private` |
-| `zkos_wrapper_layout` | `monorepo` |
 
 Supply `zkos_wrapper_version` and `era_contracts_branch` explicitly. Choose the wrapper revision
 and circuit configuration used by the intended prover; the OS release tag alone does not determine the VK.
@@ -136,24 +134,20 @@ The workflow fails before building if either required input is missing.
 Set `commit_changes=false` to generate the artifacts without committing contracts changes.
 Reusable workflow callers can supply the same overrides, and default to not committing changes.
 
-The monorepo layout builds the `zkos-wrapper/` workspace with `security_100` explicitly enabled.
+The script builds the `zkos-wrapper/` workspace with `security_100` explicitly enabled.
 It runs `generate-vk` with both `multiblock_batch.bin` and `multiblock_batch.text`, the trusted setup,
 and `--check-aux-params`, matching the application-bound configuration of prover v0.9.5-private.
 That prover pins `zksync-protocol-private` revision `621e27502f7baf21b0eeafe742764ab474aa0f6d`.
-The v33.1 monorepo wrapper uses the larger `setup_2^25.key` trusted setup; the older
+The v33.1 wrapper uses the larger `setup_2^25.key` trusted setup; the older
 `setup_2^24.key` has too few points for its SNARK domain. Both files are checksum-verified.
 The script also raises the main-thread stack limit and supplies `RUST_MIN_STACK` for worker threads.
-Older protocols continue using the standalone `generate-snark-vk` CLI and the smaller setup.
-The FFLONK verifier is refreshed only when it exists in the target checkout: v33 uses PLONK alone,
-while older versions retain both verifiers.
 
 For v33, dependency checkouts, downloads, and Cargo use the configured
 `MATTERLABS_BOTS` GitHub App with contents-read access scoped to the private
 protocol, private Airbender, and private OS repositories. Public `era-contracts`
 is checked out separately using the workflow token (or `RELEASE_TOKEN` when
 contracts writes are enabled), without requesting access through the app. The app must be
-installed on these repositories. Older protocols check out dependencies with `RELEASE_TOKEN`
-and download the public OS release by URL. Contracts commits use `RELEASE_TOKEN`,
+installed on these repositories. Contracts commits use `RELEASE_TOKEN`,
 which needs write access to the target contracts repository when committing changes. The workflow uses GitHub CLI authentication for release downloads
 and Cargo Git dependencies.
 
@@ -165,13 +159,11 @@ REPO_DIR=/path/to/era-contracts \
 ZKOS_WRAPPER_PATH=/path/to/zksync-protocol-private \
 ZKSYNC_OS_REPOSITORY=matter-labs/zksync-os-private \
 ZKSYNC_OS_TAG=v0.5.5 \
-ZKOS_WRAPPER_LAYOUT=monorepo \
     uv run -m scripts.update_vk
 ```
 
-`ZKSYNC_OS_REPOSITORY` selects GitHub CLI downloads, which support `GH_TOKEN`, `GITHUB_TOKEN`,
-or local `gh auth login` credentials. It takes precedence over `ZKSYNC_OS_URL`.
-Without it, the existing `ZKSYNC_OS_URL` download path is retained.
+OS release assets are downloaded from `ZKSYNC_OS_REPOSITORY` with the GitHub CLI, which supports
+`GH_TOKEN`, `GITHUB_TOKEN`, or local `gh auth login` credentials.
 Local Cargo builds also need Git access to the wrapper's private dependencies; HTTPS users can
 run `gh auth setup-git --hostname github.com` and set `CARGO_NET_GIT_FETCH_WITH_CLI=true`.
 The OS binary is downloaded afresh on each run so reusing a workspace cannot select a previous release.
@@ -208,11 +200,11 @@ not verify a real proof under the new key.
 ## Script dependencies
 
 The script relies on the following external resources:
-- [Trusted setup CRS file `setup_2^24.key`](https://storage.googleapis.com/matterlabs-setup-keys-europe/setup-keys/setup_2^24.key)
-- ZKsync OS `multiblock_batch.bin` binary from [zksync-os releases](https://github.com/matter-labs/zksync-os/releases)
-- [zkos-wrapper part to generate verification keys](https://github.com/matter-labs/zkos-wrapper/blob/main/docs/end_to_end.md?plain=1#L36)
-- [Plonk and Flonk verifier contract generator](https://github.com/matter-labs/era-contracts/tree/zksync-os-stable/tools/verifier-gen)
-- [`recompute_hashes.sh` script to recompute contract hashes after update](https://github.com/matter-labs/era-contracts/blob/zksync-os-stable/recompute_hashes.sh)
+- Trusted setup CRS file [`setup_2^24.key`](https://storage.googleapis.com/matterlabs-setup-keys-europe/setup-keys/setup_2^24.key) (v33.2) or [`setup_2^25.key`](https://storage.googleapis.com/matterlabs-setup-keys-us/setup-keys/setup_2^25.key) (v33.1)
+- ZKsync OS `multiblock_batch.bin` and `multiblock_batch.text` from `matter-labs/zksync-os-private` releases
+- `zkos-wrapper` from `matter-labs/zksync-protocol-private` to generate verification keys
+- [Plonk verifier contract generator](https://github.com/matter-labs/era-contracts/tree/v0.33.2/tools/verifier-gen)
+- [`recompute_hashes.sh` script to recompute contract hashes after update](https://github.com/matter-labs/era-contracts/blob/v0.33.2/recompute_hashes.sh)
 
 
 ```admonish bug title="Script failure"

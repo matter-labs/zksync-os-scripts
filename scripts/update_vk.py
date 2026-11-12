@@ -25,36 +25,31 @@ def prepare_wrapper_stack() -> None:
 def download_os_binary(
     ctx: ScriptCtx,
     tag: str,
-    url: str,
-    repository: str | None,
+    repository: str,
     asset_name: str = "multiblock_batch.bin",
 ) -> Path:
     output_file = ctx.workspace / asset_name
     # A shared workspace may contain another release's binary. Always fetch the requested
     # asset and only replace the previous file once the download succeeds.
-    if repository:
-        with tempfile.TemporaryDirectory(dir=ctx.workspace) as tmp:
-            downloaded = Path(tmp) / asset_name
-            # gh uses the authenticated API asset endpoint for private releases and reuses
-            # GH_TOKEN, GITHUB_TOKEN, or the operator's local GitHub CLI credentials.
-            ctx.sh(
-                [
-                    "gh",
-                    "release",
-                    "download",
-                    tag,
-                    "--repo",
-                    repository,
-                    "--pattern",
-                    asset_name,
-                    "--output",
-                    str(downloaded),
-                ]
-            )
-            downloaded.replace(output_file)
-    else:
-        asset_url = f"{url.rstrip('/')}/releases/download/{tag}/{asset_name}"
-        utils.download(asset_url, output_file, force=True)
+    with tempfile.TemporaryDirectory(dir=ctx.workspace) as tmp:
+        downloaded = Path(tmp) / asset_name
+        # gh uses the authenticated API asset endpoint for private releases and reuses
+        # GH_TOKEN, GITHUB_TOKEN, or the operator's local GitHub CLI credentials.
+        ctx.sh(
+            [
+                "gh",
+                "release",
+                "download",
+                tag,
+                "--repo",
+                repository,
+                "--pattern",
+                asset_name,
+                "--output",
+                str(downloaded),
+            ]
+        )
+        downloaded.replace(output_file)
     return output_file
 
 
@@ -65,33 +60,19 @@ def script(ctx: ScriptCtx) -> None:
     utils.require_cmds(
         {
             "cargo": ">=1.89",
+            "gh": ">=2.0",
         }
     )
 
     # ------------------------------------------------------------------ #
     # Required environment
     # ------------------------------------------------------------------ #
-    zkos_wrapper_path = utils.require_path("ZKOS_WRAPPER_PATH")
+    zkos_wrapper_path = utils.require_path("ZKOS_WRAPPER_PATH") / "zkos-wrapper"
     zksync_os_tag = utils.require_env("ZKSYNC_OS_TAG")
-    zksync_os_url = utils.require_env("ZKSYNC_OS_URL", config.ZKSYNC_OS_URL)
-    zksync_os_repository = os.environ.get("ZKSYNC_OS_REPOSITORY")
-    recursion_mode = os.environ.get("ZKOS_WRAPPER_RECURSION_MODE")
-    wrapper_layout = os.environ.get("ZKOS_WRAPPER_LAYOUT", "legacy")
-    if wrapper_layout not in {"legacy", "monorepo"}:
-        raise ValueError(f"Unsupported wrapper layout: {wrapper_layout}")
-    if wrapper_layout == "monorepo":
-        if recursion_mode:
-            raise ValueError(
-                "The monorepo wrapper uses the unified verifier; omit ZKOS_WRAPPER_RECURSION_MODE"
-            )
-        zkos_wrapper_path /= "zkos-wrapper"
-    crs_power = os.environ.get(
-        "ZKOS_WRAPPER_CRS_POWER", "25" if wrapper_layout == "monorepo" else "24"
-    )
+    zksync_os_repository = utils.require_env("ZKSYNC_OS_REPOSITORY")
+    crs_power = os.environ.get("ZKOS_WRAPPER_CRS_POWER", "25")
     if crs_power not in {"24", "25"}:
         raise ValueError(f"Unsupported CRS power: {crs_power}")
-    if zksync_os_repository:
-        utils.require_cmds({"gh": ">=2.0"})
 
     # ------------------------------------------------------------------ #
     # Download CRS (trusted setup) file
@@ -117,26 +98,17 @@ def script(ctx: ScriptCtx) -> None:
     # Download ZKsync OS binary (multiblock_batch.bin) for given tag
     # ------------------------------------------------------------------ #
     with ctx.section("Download ZKsync OS binary", expected=1):
-        binary_path = download_os_binary(
-            ctx, zksync_os_tag, zksync_os_url, zksync_os_repository
+        binary_path = download_os_binary(ctx, zksync_os_tag, zksync_os_repository)
+        text_path = download_os_binary(
+            ctx, zksync_os_tag, zksync_os_repository, "multiblock_batch.text"
         )
-        if wrapper_layout == "monorepo":
-            text_path = download_os_binary(
-                ctx,
-                zksync_os_tag,
-                zksync_os_url,
-                zksync_os_repository,
-                "multiblock_batch.text",
-            )
 
     manifest_path = ctx.workspace / "generation-manifest.json"
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text())
-        files = [binary_path]
-        if wrapper_layout == "monorepo":
-            files.append(text_path)
         manifest["program_sha256"] = {
-            path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in files
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in (binary_path, text_path)
         }
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -148,27 +120,11 @@ def script(ctx: ScriptCtx) -> None:
         vk_path = ctx.workspace / "snark_vk_expected.json"
         if vk_path.is_file():
             vk_path.unlink()
-        command = [
-            "cargo",
-            "run",
-            "--bin",
-            "wrapper",
-            "--release",
-            "--",
-            "generate-snark-vk",
-            "--input-binary",
-            str(binary_path),
-            "--trusted-setup-file",
-            str(crs_path),
-            "--output-dir",
-            str(ctx.workspace),
-        ]
-        if recursion_mode:
-            command.extend(["--recursion-mode", recursion_mode])
-        if wrapper_layout == "monorepo":
-            # Match the prover's 100-bit circuits and constrain the application commitment.
-            # Without --check-aux-params this CLI generates an application-independent VK.
-            command = [
+        (ctx.workspace / "snark_vk.json").unlink(missing_ok=True)
+        # Match the prover's 100-bit circuits and constrain the application commitment.
+        # Without --check-aux-params this CLI generates an application-independent VK.
+        ctx.sh(
+            [
                 "cargo",
                 "run",
                 "--locked",
@@ -191,10 +147,7 @@ def script(ctx: ScriptCtx) -> None:
                 "--check-aux-params",
                 "--output-dir",
                 str(ctx.workspace),
-            ]
-            (ctx.workspace / "snark_vk.json").unlink(missing_ok=True)
-        ctx.sh(
-            command,
+            ],
             cwd=zkos_wrapper_path,
             env={
                 "RUST_MIN_STACK": os.environ.get(
@@ -202,8 +155,7 @@ def script(ctx: ScriptCtx) -> None:
                 )
             },
         )
-        if wrapper_layout == "monorepo":
-            utils.cp(ctx.workspace / "snark_vk.json", vk_path)
+        utils.cp(ctx.workspace / "snark_vk.json", vk_path)
 
     # ------------------------------------------------------------------ #
     # Copy VK and generate verifier contracts
@@ -234,13 +186,14 @@ def script(ctx: ScriptCtx) -> None:
             / "state-transition"
             / "verifiers"
         )
-        for contract in ("ZKsyncOSVerifierPlonk", "ZKsyncOSVerifierFflonk"):
-            src = ctx.repo_dir / "tools" / "verifier-gen" / "data" / f"{contract}.sol"
-            dst = verifiers_dir / f"{contract}.sol"
-            # v33 removed the OS FFLONK verifier; older contracts still require it.
-            if contract == "ZKsyncOSVerifierFflonk" and not dst.exists():
-                continue
-            utils.cp(src, dst)
+        utils.cp(
+            ctx.repo_dir
+            / "tools"
+            / "verifier-gen"
+            / "data"
+            / "ZKsyncOSVerifierPlonk.sol",
+            verifiers_dir / "ZKsyncOSVerifierPlonk.sol",
+        )
 
         vk_hash = utils.extract_vk_hash(verifiers_dir / "ZKsyncOSVerifierPlonk.sol")
         (ctx.workspace / "vk_hash.txt").write_text(vk_hash + "\n", encoding="utf-8")

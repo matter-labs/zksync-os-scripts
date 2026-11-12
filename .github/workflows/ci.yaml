@@ -59,12 +59,10 @@ jobs:
   # Check verification keys update script
   check-vk:
     uses: ./.github/workflows/update-vk.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        protocol_version: ["v30.2", "v31.0", "v32.0"]
     with:
-      protocol_version: "${{ matrix.protocol_version }}"
+      protocol_version: v33.2
+      # The tag holds the released v33.2 key, so regeneration runs against known-good contracts.
+      era_contracts_branch: v0.33.2
     secrets: inherit
 
   # Special job that allows some of the jobs to be skipped or failed
