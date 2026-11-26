@@ -5,10 +5,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import tomllib
 
 from lib.entry import run_script
@@ -42,11 +44,20 @@ SNARK_VERIFIER = Path(
 RANGE_VECTOR_TEST = Path(
     "l1-contracts/test/foundry/l1/unit/concrete/Verifier/MultiProofRangeVectorTest.t.sol"
 )
+REAL_PROOF_TEST = Path(
+    "l1-contracts/test/foundry/l1/unit/concrete/Verifier/ZiskVerifierRealProofTest.t.sol"
+)
 ALL_CONTRACTS_HASHES = Path("AllContractsHashes.json")
 # Everything a rotation may change; the commit step stages the whole checkout.
 ROTATED_PATHS = frozenset(
     path.as_posix()
-    for path in (ZISK_VK_JSON, ZISK_VERIFIER, RANGE_VECTOR_TEST, ALL_CONTRACTS_HASHES)
+    for path in (
+        ZISK_VK_JSON,
+        ZISK_VERIFIER,
+        RANGE_VECTOR_TEST,
+        REAL_PROOF_TEST,
+        ALL_CONTRACTS_HASHES,
+    )
 )
 # MultiProofRangeVectorTest constant -> pin.
 RANGE_VECTOR_PINS = {
@@ -55,13 +66,31 @@ RANGE_VECTOR_PINS = {
     "ROOT_C_VADCOP_FINAL": "root_cv_adcop_final",
 }
 
-FIXTURE_SESSION_URL = "https://github.com/matter-labs/zksync-os-zisk/actions/workflows/fixture-session.yaml"
+FIXTURE_SESSION_WORKFLOW = "fixture-session.yaml"
+FIXTURE_SESSION_URL = (
+    f"https://github.com/{ZISK_REPOSITORY}/actions/workflows/{FIXTURE_SESSION_WORKFLOW}"
+)
+# The artifact holding a session's proofs, and the files in it this script reads.
+FIXTURE_SESSION_ARTIFACT = "zisk-fixture-session"
+BATCH_INSPECT = "batch1-inspect.txt"
+AGGREGATED_INSPECT = "aggregated-inspect.txt"
+# How many of the newest successful sessions to search. A session keeps its
+# artifact for 14 days, so older ones have nothing left to download.
+FIXTURE_SESSION_LOOKBACK = 20
+
+# A ZiSK final SNARK and its public values:
+# programVK(32) || 64 guest-public u64 slots(512) || rootCVadcopFinal(32).
+SNARK_PROOF_BYTES = 2208
+PUBLIC_VALUES_BYTES = 576
+GUEST_PUBLICS_BYTES = 512
 
 TAG_RE = re.compile(r"[0-9A-Za-z][0-9A-Za-z._-]*")
 HEX32_RE = re.compile(r"0x[0-9a-fA-F]{64}")
 LIMBS_RE = re.compile(r"\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]")
 VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?")
 VK_HASH_RE = re.compile(r"\b_VK_HASH\s*=\s*(0x[0-9a-fA-F]{64})\s*;")
+# `inspect_proof` output lines, e.g. `PROOF(2208): <hex>`.
+INSPECT_RE = re.compile(r"^(PROOF|PUBLIC_VALUES)\((\d+)\): ([0-9a-f]*)$", re.MULTILINE)
 
 RAW = "application/vnd.github.raw"
 
@@ -278,6 +307,173 @@ def update_range_vector_test(path: Path, pins: ZiskPins) -> bytes:
     return digest
 
 
+@dataclass(frozen=True)
+class SnarkFixture:
+    proof: bytes
+    public_values: bytes
+
+
+@dataclass(frozen=True)
+class FixtureSession:
+    run_url: str
+    batch: SnarkFixture
+    aggregated: SnarkFixture
+
+
+def expected_public_values(program_vk: bytes, value: bytes, root_c: bytes) -> bytes:
+    """The public values of a SNARK whose guest commits `value` and nothing else.
+
+    A guest public holds 32 bits, so `value` fills the first eight u64 slots four
+    bytes at a time, each followed by four zero pad bytes; the other slots are zero.
+    """
+    slots = b"".join(value[i : i + 4] + bytes(4) for i in range(0, 32, 4))
+    return program_vk + slots.ljust(GUEST_PUBLICS_BYTES, b"\0") + root_c
+
+
+def parse_inspect(text: str, label: str) -> SnarkFixture:
+    """The proof and public values in zksync-os-zisk `inspect_proof` output."""
+    values = {}
+    for kind, length, value in INSPECT_RE.findall(text):
+        if kind in values:
+            raise ValueError(f"{label}: more than one {kind} line")
+        data = bytes.fromhex(value)
+        if len(data) != int(length):
+            raise ValueError(f"{label}: {kind} holds {len(data)} bytes, not {length}")
+        values[kind] = data
+    if set(values) != {"PROOF", "PUBLIC_VALUES"}:
+        raise ValueError(f"{label}: expected one PROOF and one PUBLIC_VALUES line")
+    fixture = SnarkFixture(values["PROOF"], values["PUBLIC_VALUES"])
+    if len(fixture.proof) != SNARK_PROOF_BYTES:
+        raise ValueError(f"{label}: expected a {SNARK_PROOF_BYTES}-byte proof")
+    if len(fixture.public_values) != PUBLIC_VALUES_BYTES:
+        raise ValueError(
+            f"{label}: expected {PUBLIC_VALUES_BYTES} bytes of public values"
+        )
+    return fixture
+
+
+def download_fixture_session(repository: str, run_id: int) -> dict[str, str]:
+    """The inspect files of a fixture session's artifact; missing ones are left out."""
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            ["gh", "run", "download", str(run_id), "--repo", repository]
+            + ["--name", FIXTURE_SESSION_ARTIFACT, "--dir", directory],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"`gh run download {run_id}` failed: {result.stderr.strip()}"
+            )
+        files = {}
+        for name in (BATCH_INSPECT, AGGREGATED_INSPECT):
+            path = Path(directory) / name
+            if path.is_file():
+                files[name] = path.read_text()
+        return files
+
+
+def find_fixture_session(
+    repository: str,
+    pins: ZiskPins,
+    commitment: bytes,
+    digest: bytes,
+    logger: logging.Logger,
+    api: Callable[..., str] = gh_api,
+    download: Callable[[str, int], dict[str, str]] = download_fixture_session,
+) -> FixtureSession | None:
+    """The newest successful fixture session that proved these pins.
+
+    A session qualifies only if its batch-1 public values are exactly the inner
+    programVK, `commitment` and the root, and its aggregated ones exactly the
+    aggregator programVK, `digest` and the root. The proofs themselves are
+    checked by `ZiskVerifierRealProofTest`, which runs the real pairing.
+    """
+    expected = {
+        BATCH_INSPECT: expected_public_values(
+            pins.inner_program_vk, commitment, pins.root_cv_adcop_final
+        ),
+        AGGREGATED_INSPECT: expected_public_values(
+            pins.aggregator_program_vk, digest, pins.root_cv_adcop_final
+        ),
+    }
+    runs = json.loads(
+        api(
+            f"repos/{repository}/actions/workflows/{FIXTURE_SESSION_WORKFLOW}/runs"
+            f"?status=success&per_page={FIXTURE_SESSION_LOOKBACK}"
+        )
+    )["workflow_runs"]
+    for run in runs:
+        artifacts = json.loads(
+            api(
+                f"repos/{repository}/actions/runs/{run['id']}/artifacts"
+                f"?name={FIXTURE_SESSION_ARTIFACT}"
+            )
+        )["artifacts"]
+        if not any(not artifact["expired"] for artifact in artifacts):
+            continue
+        files = download(repository, run["id"])
+        try:
+            fixtures = {
+                name: parse_inspect(files[name], f"{run['html_url']}: {name}")
+                for name in expected
+            }
+        except (KeyError, ValueError) as error:
+            logger.info("Skipping %s: %s", run["html_url"], error)
+            continue
+        if all(
+            fixtures[name].public_values == public_values
+            for name, public_values in expected.items()
+        ):
+            return FixtureSession(
+                run["html_url"], fixtures[BATCH_INSPECT], fixtures[AGGREGATED_INSPECT]
+            )
+        logger.info("Skipping %s: it proved other values", run["html_url"])
+    return None
+
+
+def real_proof_commitment(path: Path) -> bytes:
+    """The batch-1 commitment `ZiskVerifierRealProofTest`'s range starts with."""
+    matches = _bytes32_constant("COMMITMENT_1").findall(path.read_text())
+    if len(matches) != 1:
+        raise ValueError(f"{path}: expected one COMMITMENT_1, found {len(matches)}")
+    return bytes.fromhex(matches[0][1][2:])
+
+
+def update_real_proof_test(
+    path: Path, session: FixtureSession, repository: str, tag: str
+) -> None:
+    """Replaces the test's two SNARKs, their public values and the run it cites."""
+    source = path.read_text()
+    for name, value in {
+        "BATCH_PROOF": session.batch.proof,
+        "BATCH_PUBLIC_VALUES": session.batch.public_values,
+        "AGGREGATED_PROOF": session.aggregated.proof,
+        "AGGREGATED_PUBLIC_VALUES": session.aggregated.public_values,
+    }.items():
+        pattern = re.compile(
+            rf'(\bbytes\s+internal\s+constant\s+{name}\s*=\s*hex")[0-9a-fA-F]*(")'
+        )
+        source, count = pattern.subn(rf"\g<1>{value.hex()}\g<2>", source)
+        if count != 1:
+            raise ValueError(f"{path}: expected one {name}, found {count}")
+    run_url = re.compile(
+        rf"https://github\.com/{re.escape(repository)}/actions/runs/\d+"
+    )
+    source, count = run_url.subn(session.run_url, source)
+    if count != 1:
+        raise ValueError(f"{path}: expected one fixture-session run URL, found {count}")
+    # The notice may name the release the fixtures were proved for.
+    source = re.sub(
+        r"(reproduced from the release )[0-9A-Za-z._-]+( pins)",
+        rf"\g<1>{tag}\g<2>",
+        source,
+        count=1,
+    )
+    path.write_text(source)
+
+
 def verifier_vk_hash(source: str) -> bytes:
     matches = VK_HASH_RE.findall(source)
     if len(matches) != 1:
@@ -305,6 +501,8 @@ class Rotation:
     previous: ZiskPins
     digest: bytes
     snark_verifier_sha256: str
+    # The fixture session `ZiskVerifierRealProofTest` now cites; None if none matched.
+    fixture_session_url: str | None = None
 
     def manifest(self) -> dict:
         def pins(values: ZiskPins) -> dict:
@@ -324,6 +522,7 @@ class Rotation:
             "previous_vk_hash": f"0x{self.previous.vk_hash().hex()}",
             "binding_digest": f"0x{self.digest.hex()}",
             "snark_verifier_sha256": self.snark_verifier_sha256,
+            "fixture_session_run_url": self.fixture_session_url,
         }
 
 
@@ -346,11 +545,18 @@ def render_pr_body(rotation: Rotation, run_url: str | None = None) -> str:
         if run_url
         else "Generated by zksync-os-scripts `update_zisk_vk.py`"
     )
+    if rotation.fixture_session_url:
+        fixtures = f" `ZiskVerifierRealProofTest` takes the batch-1 and aggregated pilfflonk proofs of [fixture session {rotation.fixture_session_url.rsplit('/', 1)[-1]}]({rotation.fixture_session_url}), the newest successful session whose public values are exactly these pins, the test's `COMMITMENT_1` and the binding digest; the test checks the proofs with the real pairing."
+        not_updated = ""
+    else:
+        fixtures = ""
+        not_updated = f"""
+- Real-proof fixtures: none of the last {FIXTURE_SESSION_LOOKBACK} successful runs of zksync-os-zisk's [`fixture-session.yaml`]({FIXTURE_SESSION_URL}) has an artifact that proves these pins (artifacts last 14 days). `ZiskVerifierRealProofTest` still holds the previous release's proofs, so it fails until a fixture session for this release (RTX 6000 runner) replaces them."""
     return f"""## What ❔
 
 **Goal:** pin the ZiSK range verifier to [zksync-os-zisk release {release.tag}]({release.url}), which builds on ZiSK {release.zisk_version}.
 
-**How it works:** the three pins in `tools/verifier-gen/data/ZiSK_vk.json` move to the values the release commit records, and `ZiskVerifier` is regenerated with `cargo run -- --variant zisk`. The combined VK hash is `0x{release.pins.vk_hash().hex()}` (was `0x{rotation.previous.vk_hash().hex()}`). `MultiProofRangeVectorTest` takes the new pins and the binding digest `keccak256(innerVK ‖ rootC ‖ CHAINED_PI)` = `0x{rotation.digest.hex()}`. The vendored `PilfflonkVerifier.sol` is byte-identical to upstream ZiSK v{release.zisk_version} `{UPSTREAM_SNARK_VERIFIER}` (SHA-256 `{rotation.snark_verifier_sha256}`), so the deployed SNARK verifier stays valid.
+**How it works:** the three pins in `tools/verifier-gen/data/ZiSK_vk.json` move to the values the release commit records, and `ZiskVerifier` is regenerated with `cargo run -- --variant zisk`. The combined VK hash is `0x{release.pins.vk_hash().hex()}` (was `0x{rotation.previous.vk_hash().hex()}`). `MultiProofRangeVectorTest` takes the new pins and the binding digest `keccak256(innerVK ‖ rootC ‖ CHAINED_PI)` = `0x{rotation.digest.hex()}`.{fixtures} The vendored `PilfflonkVerifier.sol` is byte-identical to upstream ZiSK v{release.zisk_version} `{UPSTREAM_SNARK_VERIFIER}` (SHA-256 `{rotation.snark_verifier_sha256}`), so the deployed SNARK verifier stays valid.
 
 | Pin | Value | Previous |
 |---|---|---|
@@ -358,10 +564,11 @@ def render_pr_body(rotation: Rotation, run_url: str | None = None) -> str:
 
 **Affected contracts:** `ZiskVerifier` (new bytecode; `AllContractsHashes.json` updated).
 
+**Chain states:** the new bytecode changes the anvil-interop chain states. After opening this PR, the rotation workflow dispatches *Update All Generated Artifacts* for it, which commits the regenerated `l1-contracts/test/anvil-interop/chain-states/`. `state-generation-check` fails until that commit lands.
+
 **Upgrade:** deploy the regenerated `ZiskVerifier` (the range verifier, `zisk_range_verifier_addr`) with the existing `PilfflonkVerifier` as its `IZiskSnarkVerifier`. Downstream server manifests must adopt the same pins with release {release.tag}.
 
-**Not updated by the automation:**
-- Real-proof fixtures: `ZiskVerifierRealProofTest` still holds the previous release's proofs and checks them against the pins, so it fails until they are replaced. New ones come from a separate run of zksync-os-zisk's [`fixture-session.yaml`]({FIXTURE_SESSION_URL}) for this release, which proves on the RTX 6000 runner.
+**Not updated by the automation:**{not_updated}
 - The prose that names the release: `l1-contracts/contracts/state-transition/verifiers/README.md` and `MultiProofRangeVectorTest`'s notice.
 
 ## Why ❔
@@ -445,6 +652,27 @@ def script(ctx: ScriptCtx) -> None:
         )
         ctx.logger.info("Binding digest: 0x%s", digest.hex())
 
+    with ctx.section("Update the real-proof fixtures", expected=60):
+        session = find_fixture_session(
+            repository,
+            release.pins,
+            real_proof_commitment(ctx.repo_dir / REAL_PROOF_TEST),
+            digest,
+            ctx.logger,
+        )
+        if session is None:
+            ctx.logger.warning(
+                "No fixture session proves %s; %s keeps its proofs and fails until "
+                "they are replaced",
+                tag,
+                REAL_PROOF_TEST.name,
+            )
+        else:
+            update_real_proof_test(
+                ctx.repo_dir / REAL_PROOF_TEST, session, repository, tag
+            )
+            ctx.logger.info("Real-proof fixtures: %s", session.run_url)
+
     with ctx.section("Update test hashes", expected=300):
         ctx.sh(
             ["bash", str(ctx.repo_dir / "recompute_hashes.sh")],
@@ -459,7 +687,13 @@ def script(ctx: ScriptCtx) -> None:
                 f"{sorted(ROTATED_PATHS)}: {unexpected}"
             )
 
-    rotation = Rotation(release, previous, digest, snark_verifier_sha256)
+    rotation = Rotation(
+        release,
+        previous,
+        digest,
+        snark_verifier_sha256,
+        session.run_url if session else None,
+    )
     (ctx.workspace / "zisk-rotation.json").write_text(
         json.dumps(rotation.manifest(), indent=2) + "\n"
     )

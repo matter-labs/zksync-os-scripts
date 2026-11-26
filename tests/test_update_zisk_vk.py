@@ -12,22 +12,32 @@ import yaml
 
 from lib.keccak import keccak256
 from scripts.update_zisk_vk import (
+    AGGREGATED_INSPECT,
+    BATCH_INSPECT,
     RANGE_VECTOR_TEST,
+    REAL_PROOF_TEST,
     SNARK_VERIFIER,
     ZISK_VERIFIER,
     ZISK_VK_JSON,
+    FixtureSession,
     Rotation,
+    SnarkFixture,
     SnarkVerifierMismatch,
     ZiskPins,
     ZiskRelease,
     check_snark_verifier,
+    expected_public_values,
+    find_fixture_session,
     from_limbs,
+    parse_inspect,
     parse_pin_record,
     read_release,
+    real_proof_commitment,
     render_pr_body,
     script,
     to_limbs,
     update_range_vector_test,
+    update_real_proof_test,
     write_zisk_vk_json,
     zisk_version,
 )
@@ -79,6 +89,41 @@ VK_HASH_0_0_10 = bytes.fromhex(
 )
 DIGEST_0_0_10 = bytes.fromhex(
     "5afe2e89a27ddd841b343cff7fb3a9f3c0dc18b0d6bc7d685fbfa55af59c9bd0"
+)
+# Release 0.0.11, as era-contracts#2709 pins it.
+PINS_0_0_11 = ZiskPins(
+    bytes.fromhex("2ec490cc1239f924eddc97fa13db1e4eee4124cdd85a15a1f518990d54f652d8"),
+    PINS_0_0_10.aggregator_program_vk,
+    PINS_0_0_10.root_cv_adcop_final,
+)
+VK_HASH_0_0_11 = bytes.fromhex(
+    "db14dd4e90244a5924f1cb2c59149dfcf945939f10440c85880b73dcf0473c36"
+)
+DIGEST_0_0_11 = bytes.fromhex(
+    "b1449f75ebc58ce20243dd3774c8f1a617b4e06df533c7e74c2e8cedc7bfb0b0"
+)
+# The first batch of the frozen fixture range; ZiskVerifierRealProofTest's COMMITMENT_1.
+COMMITMENT_1 = bytes.fromhex(
+    "63c7606faee0ee9eff230fec391e64c0c82a0277947973ce7f6f1c9088c821dd"
+)
+# The public values of fixture session 45818119218's batch-1 and aggregated SNARKs
+# (release 0.0.11), as `inspect_proof` printed them.
+BATCH_PUBLIC_VALUES_0_0_11 = bytes.fromhex(
+    "2ec490cc1239f924eddc97fa13db1e4eee4124cdd85a15a1f518990d54f652d8"
+    "63c7606f00000000aee0ee9e00000000ff230fec00000000391e64c0"
+    "00000000c82a027700000000947973ce000000007f6f1c900000000088c821dd00000000"
+    + "00" * 448
+    + "e9414e134bb6945a148a79d44c8e850e5ef582a2b0e8dbfb2428ff0a515a6e66"
+)
+AGGREGATED_PUBLIC_VALUES_0_0_11 = bytes.fromhex(
+    "e7f72bf4c1825a6f852e65fc872c810320218c63ed41cf9bb4345737a4ac31ec"
+    "b1449f7500000000ebc58ce2000000000243dd370000000074c8f1a6"
+    "0000000017b4e06d00000000f533c7e7000000004c2e8ced00000000c7bfb0b000000000"
+    + "00" * 448
+    + "e9414e134bb6945a148a79d44c8e850e5ef582a2b0e8dbfb2428ff0a515a6e66"
+)
+FIXTURE_RUN_URL = (
+    "https://github.com/matter-labs/zksync-os-zisk/actions/runs/45818119218"
 )
 
 # tools/verifier-gen/data/ZiSK_vk.json after era-contracts#2622.
@@ -138,6 +183,67 @@ RANGE_VECTOR_AFTER = """contract MultiProofRangeVectorTest is Test {
     bytes32 internal constant DIGEST = 0xec1bf9cd08fde7ce771e6ceb96064b0fa73b3a475e7f6da8675989c3c40b13a2;
 }
 """
+
+
+def real_proof_source(batch, aggregated, run_url, release="0.0.10"):
+    """The parts of ZiskVerifierRealProofTest the rotation reads and writes."""
+    return f"""/// @dev Fixtures: the zksync-os-zisk ZiSK 1.4.0-alpha pins, guest ELFs
+///      reproduced from the release {release} pins in GPU run
+///      {run_url}.
+contract ZiskVerifierRealProofTest is Test {{
+    bytes internal constant BATCH_PROOF =
+        hex"{batch.proof.hex()}";
+
+    bytes internal constant BATCH_PUBLIC_VALUES =
+        hex"{batch.public_values.hex()}";
+
+    bytes internal constant AGGREGATED_PROOF =
+        hex"{aggregated.proof.hex()}";
+
+    bytes internal constant AGGREGATED_PUBLIC_VALUES =
+        hex"{aggregated.public_values.hex()}";
+
+    bytes32 internal constant COMMITMENT_1 = 0x{COMMITMENT_1.hex()};
+}}
+"""
+
+
+def snark(seed, public_values):
+    return SnarkFixture(bytes([seed]) * 2208, public_values)
+
+
+# Stand-ins for the 0.0.10 fixtures the test held before the 0.0.11 rotation.
+OLD_BATCH = snark(
+    1,
+    expected_public_values(
+        PINS_0_0_10.inner_program_vk, COMMITMENT_1, PINS_0_0_10.root_cv_adcop_final
+    ),
+)
+OLD_AGGREGATED = snark(
+    2,
+    expected_public_values(
+        PINS_0_0_10.aggregator_program_vk,
+        DIGEST_0_0_10,
+        PINS_0_0_10.root_cv_adcop_final,
+    ),
+)
+NEW_SESSION = FixtureSession(
+    FIXTURE_RUN_URL,
+    snark(3, BATCH_PUBLIC_VALUES_0_0_11),
+    snark(4, AGGREGATED_PUBLIC_VALUES_0_0_11),
+)
+OLD_RUN_URL = "https://github.com/matter-labs/zksync-os-zisk/actions/runs/41671348755"
+
+
+def inspect_text(fixture):
+    """`inspect_proof` output for a fixture, shortened to the lines the script reads."""
+    return (
+        f"proof bytes: {len(fixture.proof)}\n"
+        f"program_vk   = 0x{fixture.public_values[:32].hex()}\n"
+        f"PROOF({len(fixture.proof)}): {fixture.proof.hex()}\n"
+        f"PUBLIC_VALUES({len(fixture.public_values)}): {fixture.public_values.hex()}\n"
+    )
+
 
 GUEST_MANIFEST = """[package]
 name = "zksync-os-zisk-guest"
@@ -285,6 +391,10 @@ class DigestTests(unittest.TestCase):
         self.assertEqual(PINS_0_0_10.vk_hash(), VK_HASH_0_0_10)
         self.assertEqual(PINS_0_0_10.binding_digest(CHAINED_PI), DIGEST_0_0_10)
 
+    def test_0_0_11_vectors_match_era_contracts_2709(self):
+        self.assertEqual(PINS_0_0_11.vk_hash(), VK_HASH_0_0_11)
+        self.assertEqual(PINS_0_0_11.binding_digest(CHAINED_PI), DIGEST_0_0_11)
+
     def test_updates_the_range_vector(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "MultiProofRangeVectorTest.t.sol"
@@ -304,6 +414,198 @@ class DigestTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, name):
                     update_range_vector_test(path, PINS_0_0_9)
                 self.assertEqual(path.read_text(), text)
+
+
+class FixtureTests(unittest.TestCase):
+    def test_public_values_match_a_real_0_0_11_session(self):
+        self.assertEqual(
+            expected_public_values(
+                PINS_0_0_11.inner_program_vk,
+                COMMITMENT_1,
+                PINS_0_0_11.root_cv_adcop_final,
+            ),
+            BATCH_PUBLIC_VALUES_0_0_11,
+        )
+        self.assertEqual(
+            expected_public_values(
+                PINS_0_0_11.aggregator_program_vk,
+                DIGEST_0_0_11,
+                PINS_0_0_11.root_cv_adcop_final,
+            ),
+            AGGREGATED_PUBLIC_VALUES_0_0_11,
+        )
+
+    def test_parses_inspect_output(self):
+        self.assertEqual(
+            parse_inspect(inspect_text(NEW_SESSION.batch), "batch"), NEW_SESSION.batch
+        )
+
+    def test_rejects_malformed_inspect_output(self):
+        text = inspect_text(NEW_SESSION.batch)
+        proof = NEW_SESSION.batch.proof.hex()
+        for broken in [
+            text.replace("PROOF(2208)", "PROOF(2207)"),
+            text.replace(proof, proof[:-2]).replace("PROOF(2208)", "PROOF(2207)"),
+            text + text.splitlines()[-1] + "\n",
+            "\n".join(
+                line for line in text.splitlines() if "PUBLIC_VALUES" not in line
+            ),
+        ]:
+            with self.subTest(broken=broken[:80]), self.assertRaises(ValueError):
+                parse_inspect(broken, "batch")
+
+    def test_reads_the_real_proof_commitment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ZiskVerifierRealProofTest.t.sol"
+            path.write_text(real_proof_source(OLD_BATCH, OLD_AGGREGATED, OLD_RUN_URL))
+            self.assertEqual(real_proof_commitment(path), COMMITMENT_1)
+            path.write_text(path.read_text().replace("COMMITMENT_1", "COMMITMENT_ONE"))
+            with self.assertRaisesRegex(ValueError, "COMMITMENT_1"):
+                real_proof_commitment(path)
+
+    def test_updates_the_real_proof_test(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ZiskVerifierRealProofTest.t.sol"
+            path.write_text(real_proof_source(OLD_BATCH, OLD_AGGREGATED, OLD_RUN_URL))
+            expected = real_proof_source(
+                NEW_SESSION.batch, NEW_SESSION.aggregated, FIXTURE_RUN_URL, "0.0.11"
+            )
+            update_real_proof_test(
+                path, NEW_SESSION, "matter-labs/zksync-os-zisk", "0.0.11"
+            )
+            self.assertEqual(path.read_text(), expected)
+            # A second rotation to the same release changes nothing.
+            update_real_proof_test(
+                path, NEW_SESSION, "matter-labs/zksync-os-zisk", "0.0.11"
+            )
+            self.assertEqual(path.read_text(), expected)
+
+    def test_the_release_in_the_notice_is_optional(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "ZiskVerifierRealProofTest.t.sol"
+            text = real_proof_source(OLD_BATCH, OLD_AGGREGATED, OLD_RUN_URL).replace(
+                "the release 0.0.10 pins", "the pins"
+            )
+            path.write_text(text)
+            update_real_proof_test(
+                path, NEW_SESSION, "matter-labs/zksync-os-zisk", "0.0.11"
+            )
+            self.assertIn(
+                f"the pins in GPU run\n///      {FIXTURE_RUN_URL}.", path.read_text()
+            )
+
+    def test_refuses_a_real_proof_test_without_a_constant_or_run(self):
+        source = real_proof_source(OLD_BATCH, OLD_AGGREGATED, OLD_RUN_URL)
+        for old, new, message in [
+            (" AGGREGATED_PROOF ", " AGGREGATED_SNARK ", "AGGREGATED_PROOF"),
+            (OLD_RUN_URL, "https://example.com/run", "run URL"),
+        ]:
+            with self.subTest(old=old), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "ZiskVerifierRealProofTest.t.sol"
+                text = source.replace(old, new)
+                path.write_text(text)
+                with self.assertRaisesRegex(ValueError, message):
+                    update_real_proof_test(
+                        path, NEW_SESSION, "matter-labs/zksync-os-zisk", "0.0.11"
+                    )
+                self.assertEqual(path.read_text(), text)
+
+
+class FindFixtureSessionTests(unittest.TestCase):
+    REPO = "matter-labs/zksync-os-zisk"
+
+    def find(self, runs):
+        """Runs `find_fixture_session` over `runs`: (id, expired, files) newest first."""
+        by_id = {run_id: (expired, files) for run_id, expired, files in runs}
+        downloads = []
+
+        def api(endpoint, accept=None):
+            prefix = f"repos/{self.REPO}/actions/"
+            self.assertTrue(endpoint.startswith(prefix), endpoint)
+            if endpoint.startswith(f"{prefix}workflows/fixture-session.yaml/runs?"):
+                self.assertIn("status=success", endpoint)
+                return json.dumps(
+                    {
+                        "workflow_runs": [
+                            {"id": run_id, "html_url": f"https://run/{run_id}"}
+                            for run_id, _, _ in runs
+                        ]
+                    }
+                )
+            run_id = int(endpoint.removeprefix(f"{prefix}runs/").split("/")[0])
+            self.assertTrue(endpoint.endswith("/artifacts?name=zisk-fixture-session"))
+            expired, _ = by_id[run_id]
+            return json.dumps(
+                {"artifacts": [{"expired": expired}] if expired is not None else []}
+            )
+
+        def download(repository, run_id):
+            self.assertEqual(repository, self.REPO)
+            downloads.append(run_id)
+            return by_id[run_id][1]
+
+        session = find_fixture_session(
+            self.REPO,
+            PINS_0_0_11,
+            COMMITMENT_1,
+            DIGEST_0_0_11,
+            logging.getLogger("test"),
+            api,
+            download,
+        )
+        return session, downloads
+
+    @staticmethod
+    def files(session):
+        return {
+            BATCH_INSPECT: inspect_text(session.batch),
+            AGGREGATED_INSPECT: inspect_text(session.aggregated),
+        }
+
+    def test_takes_the_newest_session_that_proved_the_pins(self):
+        older = FixtureSession(
+            "https://run/1",
+            snark(9, NEW_SESSION.batch.public_values),
+            snark(9, NEW_SESSION.aggregated.public_values),
+        )
+        stale = FixtureSession("https://run/5", OLD_BATCH, OLD_AGGREGATED)
+        session, downloads = self.find(
+            [
+                (7, True, None),  # artifact expired
+                (6, None, None),  # no artifact
+                (5, False, self.files(stale)),  # the previous release
+                (4, False, {BATCH_INSPECT: "garbage"}),  # unreadable
+                (3, False, self.files(NEW_SESSION)),
+                (1, False, self.files(older)),
+            ]
+        )
+        self.assertEqual(
+            session,
+            FixtureSession("https://run/3", NEW_SESSION.batch, NEW_SESSION.aggregated),
+        )
+        self.assertEqual(downloads, [5, 4, 3])
+
+    def test_a_session_must_match_both_proofs(self):
+        mixed = FixtureSession("https://run/2", NEW_SESSION.batch, OLD_AGGREGATED)
+        session, _ = self.find([(2, False, self.files(mixed))])
+        self.assertIsNone(session)
+
+    def test_another_first_batch_does_not_match(self):
+        batch = snark(
+            3,
+            expected_public_values(
+                PINS_0_0_11.inner_program_vk,
+                b"\x01" * 32,
+                PINS_0_0_11.root_cv_adcop_final,
+            ),
+        )
+        session, _ = self.find(
+            [(2, False, self.files(FixtureSession("", batch, NEW_SESSION.aggregated)))]
+        )
+        self.assertIsNone(session)
+
+    def test_no_session_left(self):
+        self.assertEqual(self.find([]), (None, []))
 
 
 class SnarkVerifierTests(unittest.TestCase):
@@ -439,6 +741,7 @@ class ScriptTests(unittest.TestCase):
             SNARK_VERIFIER: PILFFLONK_VERIFIER,
             ZISK_VERIFIER: self.verifier(PINS_0_0_8),
             RANGE_VECTOR_TEST: RANGE_VECTOR_BEFORE,
+            REAL_PROOF_TEST: real_proof_source(OLD_BATCH, OLD_AGGREGATED, OLD_RUN_URL),
             Path("AllContractsHashes.json"): "[]\n",
             Path("recompute_hashes.sh"): "",
         }.items():
@@ -460,7 +763,28 @@ class ScriptTests(unittest.TestCase):
     def verifier(pins):
         return f"bytes32 private constant _VK_HASH = 0x{pins.vk_hash().hex()};\n"
 
-    def run_script(self, generated_pins=PINS_0_0_9, recompute=None):
+    # The session the fixture search returns; the search has its own tests.
+    SESSION = FixtureSession(
+        FIXTURE_RUN_URL,
+        snark(
+            3,
+            expected_public_values(
+                PINS_0_0_9.inner_program_vk,
+                COMMITMENT_1,
+                PINS_0_0_9.root_cv_adcop_final,
+            ),
+        ),
+        snark(
+            4,
+            expected_public_values(
+                PINS_0_0_9.aggregator_program_vk,
+                DIGEST_0_0_9,
+                PINS_0_0_9.root_cv_adcop_final,
+            ),
+        ),
+    )
+
+    def run_script(self, generated_pins=PINS_0_0_9, recompute=None, session=SESSION):
         def sh(command, **kwargs):
             self.commands.append((command, kwargs))
             if command[0] == "cargo":
@@ -486,6 +810,9 @@ class ScriptTests(unittest.TestCase):
             patch("scripts.update_zisk_vk.utils.require_cmds"),
             patch("scripts.update_zisk_vk.read_release", return_value=self.release),
             patch("scripts.update_zisk_vk.gh_api", return_value=self.upstream) as api,
+            patch(
+                "scripts.update_zisk_vk.find_fixture_session", return_value=session
+            ) as self.find,
             patch.dict(
                 os.environ,
                 {
@@ -543,11 +870,34 @@ class ScriptTests(unittest.TestCase):
         )
         sha256 = hashlib.sha256(PILFFLONK_VERIFIER.encode()).hexdigest()
         self.assertEqual(manifest["snark_verifier_sha256"], sha256)
+        self.assertEqual(manifest["fixture_session_run_url"], FIXTURE_RUN_URL)
         body = (self.workspace / "zisk_pr_body.md").read_text()
         self.assertIn(sha256, body)
-        self.assertIn("fixture-session.yaml", body)
-        self.assertIn("RTX 6000", body)
+        self.assertIn(f"[fixture session 45818119218]({FIXTURE_RUN_URL})", body)
         self.assertIn("[zksync-os-scripts run](https://run)", body)
+
+        # The search gets the test's first commitment and the new binding digest.
+        repository, pins, commitment, digest, _ = self.find.call_args.args
+        self.assertEqual(
+            (repository, pins, commitment, digest),
+            ("matter-labs/zksync-os-zisk", PINS_0_0_9, COMMITMENT_1, DIGEST_0_0_9),
+        )
+        self.assertEqual(
+            (self.repo / REAL_PROOF_TEST).read_text(),
+            real_proof_source(
+                self.SESSION.batch, self.SESSION.aggregated, FIXTURE_RUN_URL, "0.0.9"
+            ),
+        )
+
+    def test_without_a_fixture_session_the_proofs_stay(self):
+        before = (self.repo / REAL_PROOF_TEST).read_text()
+        self.run_script(session=None)
+        self.assertEqual((self.repo / REAL_PROOF_TEST).read_text(), before)
+        manifest = json.loads((self.workspace / "zisk-rotation.json").read_text())
+        self.assertIsNone(manifest["fixture_session_run_url"])
+        body = (self.workspace / "zisk_pr_body.md").read_text()
+        self.assertIn("fails until a fixture session for this release", body)
+        self.assertIn("fixture-session.yaml", body)
 
     def test_a_generated_vk_hash_that_disagrees_with_the_pins_fails(self):
         with self.assertRaisesRegex(RuntimeError, "differs from keccak256"):
@@ -597,10 +947,33 @@ class PrBodyTests(unittest.TestCase):
         self.assertIn(f"`0x{VK_HASH_0_0_9.hex()}`", body)
         self.assertIn(f"`0x{DIGEST_0_0_9.hex()}`", body)
         self.assertIn("ZiskVerifierRealProofTest", body)
-        self.assertIn("fails until they are replaced", body)
+        self.assertIn("fails until a fixture session for this release", body)
+        self.assertIn("RTX 6000", body)
+        self.assertIn("*Update All Generated Artifacts*", body)
         self.assertIn("`IZiskSnarkVerifier`", body)
         self.assertNotIn("PLONK", body)
         self.assertIn("Generated by zksync-os-scripts", body)
+
+    def test_cites_the_fixture_session(self):
+        release = ZiskRelease(
+            "matter-labs/zksync-os-zisk",
+            "0.0.11",
+            "a" * 40,
+            "https://release",
+            "1.4.0-alpha",
+            PINS_0_0_11,
+        )
+        body = render_pr_body(
+            Rotation(release, PINS_0_0_10, DIGEST_0_0_11, "ab" * 32, FIXTURE_RUN_URL)
+        )
+        self.assertIn(
+            f"`ZiskVerifierRealProofTest` takes the batch-1 and aggregated pilfflonk "
+            f"proofs of [fixture session 45818119218]({FIXTURE_RUN_URL})",
+            body,
+        )
+        not_updated = body.split("**Not updated by the automation:**")[1]
+        self.assertNotIn("Real-proof fixtures", not_updated)
+        self.assertIn("The prose that names the release", not_updated)
 
 
 class WorkflowTests(unittest.TestCase):
@@ -663,9 +1036,16 @@ class WorkflowTests(unittest.TestCase):
 
 
 # Stands in for `gh`: logs each call, arguments joined by \x1f, one call per line.
+# `pr create` prints the new PR's URL; `workflow run` fails if STUB_DISPATCH_FAILS is set.
 STUB_GH = """#!/usr/bin/env bash
 printf '%s\\x1f' "$@" >> "${STUB_DIR}/gh.log"
 printf '\\n' >> "${STUB_DIR}/gh.log"
+if [[ "$1 $2" == "pr create" ]]; then
+  echo "https://github.com/matter-labs/era-contracts/pull/2709"
+elif [[ "$1 $2" == "workflow run" && -n "${STUB_DISPATCH_FAILS:-}" ]]; then
+  echo "HTTP 403: Resource not accessible by integration" >&2
+  exit 1
+fi
 """
 
 
@@ -682,7 +1062,7 @@ class CommitStepTests(unittest.TestCase):
             if step.get("name") == cls.STEP
         )
 
-    def run_step(self, open_pr, change):
+    def run_step(self, open_pr, change, dispatch_fails=False):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             stub_dir = tmp / "stub"
@@ -722,6 +1102,8 @@ class CommitStepTests(unittest.TestCase):
                     "ZISK_RELEASE_TAG": "0.0.9",
                     "PR_BODY_FILE": str(body),
                     "COMMIT_TITLE": self.TITLE,
+                    "ARTIFACTS_WORKFLOW": self.step["env"]["ARTIFACTS_WORKFLOW"],
+                    **({"STUB_DISPATCH_FAILS": "1"} if dispatch_fails else {}),
                 },
                 capture_output=True,
                 text=True,
@@ -771,8 +1153,28 @@ class CommitStepTests(unittest.TestCase):
             [
                 ["pr", "create", "--repo", "matter-labs/era-contracts"]
                 + ["--title", self.TITLE, "--body-file", body]
-                + ["--base", "draft/v0.34.0", "--head", branch]
+                + ["--base", "draft/v0.34.0", "--head", branch],
+                # Regenerates the chain states from the rotation commit, for the new PR.
+                ["workflow", "run", "update-generated-artifacts.yaml"]
+                + ["--repo", "matter-labs/era-contracts", "--ref", branch]
+                + ["-f", "pr_number=2709"],
             ],
+        )
+        self.assertNotIn("::warning::", result.stdout)
+
+    def test_a_failed_dispatch_only_warns(self):
+        result, _, push_args, _, calls, _ = self.run_step(
+            "true", self.rotate, dispatch_fails=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            [call[:2] for call in calls], [["pr", "create"], ["workflow", "run"]]
+        )
+        self.assertIn(
+            "::warning::Could not dispatch update-generated-artifacts.yaml for "
+            "https://github.com/matter-labs/era-contracts/pull/2709; dispatch it from "
+            f"{push_args[0]} to regenerate the chain states.",
+            result.stdout,
         )
 
     def test_pushes_onto_the_contracts_branch_without_a_pr(self):
@@ -783,7 +1185,10 @@ class CommitStepTests(unittest.TestCase):
         self.assertEqual(parent, base)
         # Moving the branch requires it to still be at the commit the rotation ran on.
         self.assertEqual(expected_old, base)
+        # The chain-state workflow needs a PR, so nothing is dispatched.
         self.assertEqual(calls, [])
+        self.assertIn("::notice::", result.stdout)
+        self.assertIn("chain states were not regenerated", result.stdout)
 
 
 if __name__ == "__main__":
