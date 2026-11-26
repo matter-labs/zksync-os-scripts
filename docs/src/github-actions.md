@@ -4,6 +4,7 @@ Use this guide if you want to run the scripts via **GitHub Actions CI** instead 
 
 Manual GitHub Actions workflows are available for the following scripts:
   - [Update era-contracts: verification key generation](./scripts/update_vk.md)
+  - [Update era-contracts: ZiSK verifier pins](./scripts/update_zisk_vk.md)
   - [Update server: genesis and l1 state](./scripts/update_server.md)
 
 ```admonish warning
@@ -22,6 +23,7 @@ This documentation assumes you have permission to run workflows in Matter Labs r
 
 Please, jump to the corresponding script section for more details on each workflow:
 * [Update era-contracts: verification key generation](./scripts/update_vk.md#github-actions)
+* [Update era-contracts: ZiSK verifier pins](./scripts/update_zisk_vk.md#github-actions)
 * [Update server: genesis and l1 state](./scripts/update_server.md#github-actions)
 
 ## Outputs and artifacts
