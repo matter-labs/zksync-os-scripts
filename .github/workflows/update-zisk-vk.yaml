@@ -146,8 +146,14 @@ jobs:
           ZISK_RELEASE_TAG: ${{ inputs.zisk_release_tag }}
           PR_BODY_FILE: ${{ env.WORKSPACE }}/zisk_pr_body.md
           COMMIT_TITLE: "chore(verifier): rotate ZiSK pins to zksync-os-zisk release ${{ inputs.zisk_release_tag }}"
+          ARTIFACTS_WORKFLOW: update-generated-artifacts.yaml
         # era-contracts requires signed commits, and a pushed `git commit` is unsigned.
         # update_zisk_vk.py fails if the rotation touched files outside its own.
+        #
+        # The new ZiskVerifier bytecode changes era-contracts' anvil-interop chain states,
+        # which only its own workflow regenerates, and only for a PR. It is dispatched from
+        # the PR's branch, because a run checks the branch out at the commit it was
+        # dispatched on and commits onto that commit.
         run: |
           git add -A
           if git diff --cached --quiet; then
@@ -171,10 +177,17 @@ jobs:
           echo "${COMMIT_TITLE}" > "${message}"
           bash "${PUSH_SIGNED_COMMIT}" "${branch}" "${base}" "${message}" "${expected_old}" "${paths[@]}"
           if [[ "${OPEN_PR}" == "true" ]]; then
-            gh pr create --repo "${TARGET_REPOSITORY}" --title "${COMMIT_TITLE}" \
+            pr_url="$(gh pr create --repo "${TARGET_REPOSITORY}" --title "${COMMIT_TITLE}" \
               --body-file "${PR_BODY_FILE}" \
               --base "${CONTRACTS_BRANCH}" \
-              --head "${branch}"
+              --head "${branch}")"
+            echo "Opened ${pr_url}"
+            if ! gh workflow run "${ARTIFACTS_WORKFLOW}" --repo "${TARGET_REPOSITORY}" \
+              --ref "${branch}" -f pr_number="${pr_url##*/}"; then
+              echo "::warning::Could not dispatch ${ARTIFACTS_WORKFLOW} for ${pr_url}; dispatch it from ${branch} to regenerate the chain states."
+            fi
+          else
+            echo "::notice::Pushed onto ${CONTRACTS_BRANCH} without a PR, so the chain states were not regenerated; ${ARTIFACTS_WORKFLOW} needs a PR."
           fi
 
       - name: Upload logs

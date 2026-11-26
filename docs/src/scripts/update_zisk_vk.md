@@ -33,6 +33,14 @@ The script performs the following steps:
 - Moves `MultiProofRangeVectorTest` to the pins and its binding digest,
   `keccak256(innerVK ‖ rootC ‖ CHAINED_PI)`. `CHAINED_PI` is frozen in the test, so the digest
   needs no proof.
+- Replaces the real proofs in `ZiskVerifierRealProofTest` with those of the newest successful
+  run of zksync-os-zisk's
+  [`fixture-session.yaml`](https://github.com/matter-labs/zksync-os-zisk/actions/workflows/fixture-session.yaml)
+  (among the last 20) that proved the pins. A run qualifies only if, in the `batch1-inspect.txt`
+  and `aggregated-inspect.txt` files of its `zisk-fixture-session` artifact, the batch-1 public
+  values are exactly the inner VK, the test's `COMMITMENT_1` and the root, and the aggregated
+  ones exactly the aggregator VK, the binding digest and the root. The test then checks both
+  proofs with the real pairing. The script also points the test's notice at that run.
 - Recomputes `AllContractsHashes.json` with `recompute_hashes.sh`.
 - Fails if the rotation changed any other file in the checkout.
 
@@ -41,7 +49,13 @@ It updates the following files in [era-contracts](https://github.com/matter-labs
 - `tools/verifier-gen/data/ZiSK_vk.json` - the pins
 - `l1-contracts/contracts/state-transition/verifiers/ZiskVerifier.sol` - the regenerated verifier
 - `l1-contracts/test/foundry/l1/unit/concrete/Verifier/MultiProofRangeVectorTest.t.sol` - pins and binding digest
+- `l1-contracts/test/foundry/l1/unit/concrete/Verifier/ZiskVerifierRealProofTest.t.sol` - real batch-1 and aggregated proofs
 - `AllContractsHashes.json` - recomputed contract hashes
+
+The new `ZiskVerifier` bytecode also changes the anvil-interop chain states
+(`l1-contracts/test/anvil-interop/chain-states/`). Only era-contracts' own
+*Update All Generated Artifacts* workflow regenerates them, and only for a PR, so the
+[workflow](#github-actions) dispatches it after opening the rotation PR.
 
 [era-contracts#2622](https://github.com/matter-labs/era-contracts/pull/2622) is a manual rotation
 to release `0.0.9` and shows the expected changes. Since
@@ -49,14 +63,14 @@ to release `0.0.9` and shows the expected changes. Since
 ZiSK 1.4.0-alpha), the final SNARK is pilfflonk, verified by the vendored `PilfflonkVerifier`.
 
 ```admonish warning title="Not covered"
-- Real-proof fixtures. `ZiskVerifierRealProofTest` checks the previous release's proofs against
-  the pins, so it fails after a rotation until its fixtures come from a run of zksync-os-zisk's
-  [`fixture-session.yaml`](https://github.com/matter-labs/zksync-os-zisk/actions/workflows/fixture-session.yaml)
-  for the new release, which proves on the RTX 6000 runner.
 - Prose that names the release: `l1-contracts/contracts/state-transition/verifiers/README.md`
   and the notice of `MultiProofRangeVectorTest`.
+- Real-proof fixtures when no fixture session proved the pins. A session keeps its artifact for
+  14 days, so run zksync-os-zisk's `fixture-session.yaml` for the release (it proves on the
+  RTX 6000 runner) before rotating. Without one, `ZiskVerifierRealProofTest` keeps the previous
+  release's proofs and fails.
 
-The generated PR description lists both.
+The generated PR description lists what it did not update.
 ```
 
 ---
@@ -92,8 +106,8 @@ To run the script, you will need:
 
 Besides the contracts changes, the script writes two files to the workspace:
 `zisk-rotation.json` (release commit, ZiSK version, new and previous pins with their limbs,
-VK hashes, binding digest and the SHA-256 of the vendored `PilfflonkVerifier.sol`) and
-`zisk_pr_body.md` (the PR description).
+VK hashes, binding digest, the SHA-256 of the vendored `PilfflonkVerifier.sol` and the fixture
+session it took the real proofs from) and `zisk_pr_body.md` (the PR description).
 
 ---
 
@@ -131,6 +145,14 @@ If `commit_changes` and `open_pr` are set to `true`, the workflow opens a PR fro
 description. Without `open_pr` it pushes onto `era_contracts_branch`. If the branch already pins
 the release, nothing is committed.
 
+After opening the PR, the workflow dispatches era-contracts' `update-generated-artifacts.yaml`
+from the PR's branch with the PR's number. That run commits the regenerated chain states onto the
+PR, and `state-generation-check` fails until it does. It is dispatched from the PR's branch
+because the run checks that branch out at the commit it was dispatched on: re-running it after
+the branch moves fails, so dispatch a new one instead. If the dispatch fails, the step warns and
+names the branch to dispatch from by hand. Without `open_pr` there is no PR to regenerate for, so
+the step only leaves a notice.
+
 Like [`update-vk.yaml`](./update_vk.md#outputs), the workflow commits through
 `.github/scripts/push-signed-commit.sh`, so GitHub signs the commit, which era-contracts requires.
 
@@ -141,6 +163,8 @@ On **failed runs**, the workflow saves logs from the workspace `.logs` directory
 zksync-os-zisk and upstream ZiSK are public, so reading them needs an authenticated token but no
 repository grant; anonymous API calls are limited to 60 an hour per runner IP. The rotation step
 reads with `RELEASE_TOKEN` and falls back to the workflow token when the secret is unavailable.
+That includes downloading fixture-session artifacts, which GitHub serves to any authenticated
+token.
 
 It does not use the `MATTERLABS_BOTS` app. `update-vk.yaml` scopes that app's tokens to the
 private repositories it reads, and a token cannot be scoped to a repository outside the app's
@@ -148,11 +172,14 @@ installation (public era-contracts is outside it). A public repository does not 
 
 The era-contracts checkout and commit use the same tokens as `update-vk.yaml`: the workflow token
 for dry runs, and `RELEASE_TOKEN` when `commit_changes` is set. `RELEASE_TOKEN` needs write
-access to era-contracts and authors the signed commit and the PR.
+access to era-contracts and authors the signed commit and the PR. It also dispatches the
+chain-state regeneration, which needs permission to run era-contracts' workflows.
 
 ## Script dependencies
 
 - Pin records and guest manifests at the [zksync-os-zisk](https://github.com/matter-labs/zksync-os-zisk) release commit
+- The `zisk-fixture-session` artifact of a recent [fixture session](https://github.com/matter-labs/zksync-os-zisk/actions/workflows/fixture-session.yaml) that proved the pins
+- era-contracts' [*Update All Generated Artifacts*](https://github.com/matter-labs/era-contracts/blob/draft/v0.34.0/.github/workflows/update-generated-artifacts.yaml) workflow (`update-generated-artifacts.yaml`)
 - [`zisk-contracts/poseidon1/PilfflonkVerifier.sol`](https://github.com/0xPolygonHermez/zisk/tree/main/zisk-contracts/poseidon1) at the matching ZiSK release
 - [ZiSK verifier generator](https://github.com/matter-labs/era-contracts/tree/draft/v0.34.0/tools/verifier-gen) (`--variant zisk`)
 - [`recompute_hashes.sh`](https://github.com/matter-labs/era-contracts/blob/draft/v0.34.0/recompute_hashes.sh)
